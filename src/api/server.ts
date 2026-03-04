@@ -9,9 +9,17 @@ import { errorHandler } from "./middleware/error.middleware.js";
 
 interface ServerConfig {
   authRoutes: Router;
+  courseRoutes: Router;
+  enrollmentRoutes: Router;
+  reviewRoutes: Router;
 }
 
-export const createServer = ({ authRoutes }: ServerConfig): Express => {
+export const createServer = ({
+  authRoutes,
+  courseRoutes,
+  enrollmentRoutes,
+  reviewRoutes,
+}: ServerConfig): Express => {
   const app = express();
 
   app.use(helmet());
@@ -37,6 +45,9 @@ export const createServer = ({ authRoutes }: ServerConfig): Express => {
   });
 
   app.use("/api/auth", authRoutes);
+  app.use("/api/courses", courseRoutes);
+  app.use("/api/enrollments", enrollmentRoutes);
+  app.use("/api/reviews", reviewRoutes);
 
   app.use(errorHandler);
 

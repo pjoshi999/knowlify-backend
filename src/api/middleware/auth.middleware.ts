@@ -61,3 +61,18 @@ export const createRoleMiddleware = (...allowedRoles: UserRole[]) => {
     next();
   };
 };
+
+// Placeholder exports for routes (will be replaced with actual middleware instances)
+export const authenticate = async (
+  _req: Request,
+  _res: Response,
+  next: NextFunction
+): Promise<void> => {
+  next(new Error("Auth middleware not initialized"));
+};
+
+export const authorize = (..._roles: UserRole[]) => {
+  return (_req: Request, _res: Response, next: NextFunction): void => {
+    next(new Error("Role middleware not initialized"));
+  };
+};
