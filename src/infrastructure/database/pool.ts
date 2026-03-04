@@ -1,4 +1,4 @@
-import { Pool, PoolClient, PoolConfig, QueryResult } from "pg";
+import { Pool, PoolClient, PoolConfig, QueryResult, QueryResultRow } from "pg";
 
 interface DatabaseConfig {
   connectionString: string;
@@ -59,7 +59,7 @@ export const closeDatabasePool = async (): Promise<void> => {
   }
 };
 
-export const query = async <T = unknown>(
+export const query = async <T extends QueryResultRow = QueryResultRow>(
   text: string,
   params?: unknown[]
 ): Promise<QueryResult<T>> => {

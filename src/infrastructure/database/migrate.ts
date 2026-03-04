@@ -1,8 +1,11 @@
 import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
+import dotenv from "dotenv";
 
 import { createDatabasePool, closeDatabasePool, query } from "./pool.js";
+
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -40,7 +43,7 @@ const getMigrationFiles = async (): Promise<Migration[]> => {
     if (!file.endsWith(".sql")) continue;
 
     const match = file.match(/^(\d+)_(.+)\.sql$/);
-    if (!match) continue;
+    if (!match?.[1] || !match[2]) continue;
 
     const id = parseInt(match[1], 10);
     const name = match[2];
@@ -102,7 +105,7 @@ export const runMigrations = async (
 };
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const connectionString = process.env.DATABASE_URL;
+  const connectionString = process.env["DATABASE_URL"];
 
   if (!connectionString) {
     console.error("DATABASE_URL environment variable is required");
