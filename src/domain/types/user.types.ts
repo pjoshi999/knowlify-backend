@@ -41,7 +41,7 @@ export interface UserProfile {
 
 export interface AuthSession {
   userId: string;
-  token: string;
+  accessToken: string;
   refreshToken: string;
   expiresAt: Date;
 }

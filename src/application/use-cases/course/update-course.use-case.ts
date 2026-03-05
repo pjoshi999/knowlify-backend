@@ -12,7 +12,7 @@ import { canUpdateCourse } from "../../../domain/logic/course.logic.js";
 import {
   ValidationError,
   NotFoundError,
-  DomainError,
+  ConflictError,
 } from "../../../domain/errors/domain.errors.js";
 
 export type UpdateCourseUseCase = (
@@ -32,19 +32,22 @@ export const createUpdateCourseUseCase = (
 
     // Check if course can be updated
     if (!canUpdateCourse(existingCourse)) {
-      throw new DomainError("Cannot update archived course");
+      throw new ConflictError("Cannot update archived course");
     }
 
     // Validate inputs if provided
-    if (input.name !== undefined && !validateCourseName(input.name)) {
-      throw new ValidationError("Invalid course name");
+    if (input.name !== undefined) {
+      const nameError = validateCourseName(input.name);
+      if (nameError) {
+        throw new ValidationError(nameError);
+      }
     }
 
-    if (
-      input.description !== undefined &&
-      !validateCourseDescription(input.description)
-    ) {
-      throw new ValidationError("Invalid course description");
+    if (input.description !== undefined) {
+      const descriptionError = validateCourseDescription(input.description);
+      if (descriptionError) {
+        throw new ValidationError(descriptionError);
+      }
     }
 
     if (input.priceAmount !== undefined) {

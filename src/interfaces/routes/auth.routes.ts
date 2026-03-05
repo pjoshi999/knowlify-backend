@@ -19,6 +19,7 @@ import {
   PasswordResetRequest,
   PasswordResetCompletion,
 } from "../../domain/types/user.types.js";
+import { sendSuccess, sendMessage } from "../utils/response.js";
 
 export const createAuthRoutes = (
   userRepository: UserRepositoryPort,
@@ -44,15 +45,16 @@ export const createAuthRoutes = (
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const user = await register(req.body as RegisterInput);
-        res.status(201).json({
-          success: true,
-          data: {
+        sendSuccess(
+          res,
+          {
             id: user.id,
             email: user.email,
             name: user.name,
             role: user.role,
           },
-        });
+          201
+        );
       } catch (error) {
         next(error);
       }
@@ -64,10 +66,7 @@ export const createAuthRoutes = (
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const session = await login(req.body as LoginCredentials);
-        res.json({
-          success: true,
-          data: session,
-        });
+        sendSuccess(res, session);
       } catch (error) {
         next(error);
       }
@@ -83,10 +82,7 @@ export const createAuthRoutes = (
           const token = authHeader.substring(7);
           await logout(token);
         }
-        res.json({
-          success: true,
-          data: { message: "Logged out successfully" },
-        });
+        sendMessage(res, "Logged out successfully");
       } catch (error) {
         next(error);
       }
@@ -100,10 +96,7 @@ export const createAuthRoutes = (
         const result = await requestPasswordReset(
           req.body as PasswordResetRequest
         );
-        res.json({
-          success: true,
-          data: result,
-        });
+        sendSuccess(res, result);
       } catch (error) {
         next(error);
       }
@@ -115,10 +108,7 @@ export const createAuthRoutes = (
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         await completePasswordReset(req.body as PasswordResetCompletion);
-        res.json({
-          success: true,
-          data: { message: "Password reset successfully" },
-        });
+        sendMessage(res, "Password reset successfully");
       } catch (error) {
         next(error);
       }
@@ -134,10 +124,7 @@ export const createAuthRoutes = (
           accessToken,
           provider: "google",
         } as OAuthLoginInput);
-        res.json({
-          success: true,
-          data: session,
-        });
+        sendSuccess(res, session);
       } catch (error) {
         next(error);
       }
@@ -153,10 +140,7 @@ export const createAuthRoutes = (
           accessToken,
           provider: "github",
         } as OAuthLoginInput);
-        res.json({
-          success: true,
-          data: session,
-        });
+        sendSuccess(res, session);
       } catch (error) {
         next(error);
       }

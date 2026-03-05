@@ -1,5 +1,6 @@
 import {
   Course,
+  CourseAsset,
   CreateCourseInput,
   UpdateCourseInput,
   CourseWithStats,
@@ -11,30 +12,78 @@ import { PaginationResult } from "../../domain/types/value-objects.types.js";
 import { query } from "../database/pool.js";
 import { generateUrlSlug } from "../../domain/logic/course.logic.js";
 
+interface CourseRow {
+  id: string;
+  instructor_id: string;
+  name: string;
+  description: string;
+  category: string;
+  thumbnail_url?: string;
+  status: Course["status"];
+  price_amount: number;
+  price_currency: string;
+  manifest: Course["manifest"];
+  url_slug: string;
+  created_at: Date;
+  updated_at: Date;
+  published_at?: Date;
+  deleted_at?: Date;
+  enrollment_count?: number | string;
+  avg_rating?: number | string;
+  review_count?: number | string;
+  total_revenue?: number | string;
+}
+
+const mapToCourse = (row: CourseRow): Course => ({
+  id: row["id"],
+  instructorId: row["instructor_id"],
+  name: row["name"],
+  description: row["description"],
+  category: row["category"],
+  thumbnailUrl: row["thumbnail_url"],
+  status: row["status"],
+  priceAmount: Number(row["price_amount"]),
+  priceCurrency: row["price_currency"],
+  manifest: row["manifest"],
+  urlSlug: row["url_slug"],
+  createdAt: row["created_at"],
+  updatedAt: row["updated_at"],
+  publishedAt: row["published_at"],
+  deletedAt: row["deleted_at"],
+});
+
+const mapToCourseWithStats = (row: CourseRow): CourseWithStats => ({
+  ...mapToCourse(row),
+  enrollmentCount: Number(row["enrollment_count"] ?? 0),
+  avgRating: Number(row["avg_rating"] ?? 0),
+  reviewCount: Number(row["review_count"] ?? 0),
+  totalRevenue: Number(row["total_revenue"] ?? 0),
+});
+
 export const createCourseRepository = (): CourseRepositoryPort => {
   return {
     findById: async (id: string): Promise<Course | null> => {
-      const result = await query<Course>(
+      const result = await query<CourseRow>(
         "SELECT * FROM courses WHERE id = $1 AND deleted_at IS NULL",
         [id]
       );
-      return result.rows[0] ?? null;
+      return result.rows[0] ? mapToCourse(result.rows[0]) : null;
     },
 
     findBySlug: async (slug: string): Promise<Course | null> => {
-      const result = await query<Course>(
+      const result = await query<CourseRow>(
         "SELECT * FROM courses WHERE url_slug = $1 AND deleted_at IS NULL",
         [slug]
       );
-      return result.rows[0] ?? null;
+      return result.rows[0] ? mapToCourse(result.rows[0]) : null;
     },
 
     findByInstructor: async (instructorId: string): Promise<Course[]> => {
-      const result = await query<Course>(
+      const result = await query<CourseRow>(
         "SELECT * FROM courses WHERE instructor_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC",
         [instructorId]
       );
-      return result.rows;
+      return result.rows.map(mapToCourse);
     },
 
     findAll: async (
@@ -93,8 +142,8 @@ export const createCourseRepository = (): CourseRepositoryPort => {
         avgRating: "cs.avg_rating",
       };
 
-      const sortField = sortFieldMap[pagination.sortBy || "createdAt"];
-      const sortOrder = pagination.sortOrder || "desc";
+      const sortField = sortFieldMap[pagination.sortBy ?? "createdAt"];
+      const sortOrder = pagination.sortOrder ?? "desc";
 
       const offset = (pagination.page - 1) * pagination.limit;
 
@@ -102,15 +151,15 @@ export const createCourseRepository = (): CourseRepositoryPort => {
       const countResult = await query<{ count: string }>(
         `SELECT COUNT(*) as count
          FROM courses c
-         LEFT JOIN course_stats cs ON c.id = cs.course_id
+         LEFT JOIN course_statistics cs ON c.id = cs.course_id
          WHERE ${whereClause}`,
         params
       );
 
-      const totalCount = parseInt(countResult.rows[0]?.count || "0", 10);
+      const totalCount = parseInt(countResult.rows[0]?.count ?? "0", 10);
 
       // Get paginated results
-      const result = await query<CourseWithStats>(
+      const result = await query<CourseRow>(
         `SELECT 
            c.*,
            COALESCE(cs.enrollment_count, 0) as enrollment_count,
@@ -118,7 +167,7 @@ export const createCourseRepository = (): CourseRepositoryPort => {
            COALESCE(cs.review_count, 0) as review_count,
            COALESCE(cs.total_revenue, 0) as total_revenue
          FROM courses c
-         LEFT JOIN course_stats cs ON c.id = cs.course_id
+         LEFT JOIN course_statistics cs ON c.id = cs.course_id
          WHERE ${whereClause}
          ORDER BY ${sortField} ${sortOrder}
          LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
@@ -126,7 +175,7 @@ export const createCourseRepository = (): CourseRepositoryPort => {
       );
 
       return {
-        data: result.rows,
+        data: result.rows.map(mapToCourseWithStats),
         pagination: {
           page: pagination.page,
           limit: pagination.limit,
@@ -141,7 +190,7 @@ export const createCourseRepository = (): CourseRepositoryPort => {
     create: async (input: CreateCourseInput): Promise<Course> => {
       const urlSlug = generateUrlSlug(input.name);
 
-      const result = await query<Course>(
+      const result = await query<CourseRow>(
         `INSERT INTO courses (
            instructor_id, name, description, category, thumbnail_url,
            price_amount, price_currency, manifest, url_slug, status
@@ -153,15 +202,15 @@ export const createCourseRepository = (): CourseRepositoryPort => {
           input.name,
           input.description,
           input.category,
-          input.thumbnailUrl || null,
+          input.thumbnailUrl ?? null,
           input.priceAmount,
-          input.priceCurrency || "USD",
-          JSON.stringify(input.manifest || { modules: [] }),
+          input.priceCurrency ?? "USD",
+          JSON.stringify(input.manifest ?? { modules: [] }),
           urlSlug,
         ]
       );
 
-      return result.rows[0]!;
+      return mapToCourse(result.rows[0]!);
     },
 
     update: async (id: string, input: UpdateCourseInput): Promise<Course> => {
@@ -202,12 +251,12 @@ export const createCourseRepository = (): CourseRepositoryPort => {
       fields.push(`updated_at = NOW()`);
       values.push(id);
 
-      const result = await query<Course>(
+      const result = await query<CourseRow>(
         `UPDATE courses SET ${fields.join(", ")} WHERE id = $${paramIndex} RETURNING *`,
         values
       );
 
-      return result.rows[0]!;
+      return mapToCourse(result.rows[0]!);
     },
 
     delete: async (id: string): Promise<void> => {
@@ -215,25 +264,25 @@ export const createCourseRepository = (): CourseRepositoryPort => {
     },
 
     publish: async (id: string): Promise<Course> => {
-      const result = await query<Course>(
+      const result = await query<CourseRow>(
         `UPDATE courses 
          SET status = 'PUBLISHED', published_at = NOW(), updated_at = NOW()
          WHERE id = $1
          RETURNING *`,
         [id]
       );
-      return result.rows[0]!;
+      return mapToCourse(result.rows[0]!);
     },
 
     archive: async (id: string): Promise<Course> => {
-      const result = await query<Course>(
+      const result = await query<CourseRow>(
         `UPDATE courses 
          SET status = 'ARCHIVED', updated_at = NOW()
          WHERE id = $1
          RETURNING *`,
         [id]
       );
-      return result.rows[0]!;
+      return mapToCourse(result.rows[0]!);
     },
 
     exists: async (id: string): Promise<boolean> => {
@@ -245,7 +294,7 @@ export const createCourseRepository = (): CourseRepositoryPort => {
     },
 
     getStats: async (id: string): Promise<CourseWithStats | null> => {
-      const result = await query<CourseWithStats>(
+      const result = await query<CourseRow>(
         `SELECT 
            c.*,
            COALESCE(cs.enrollment_count, 0) as enrollment_count,
@@ -253,11 +302,48 @@ export const createCourseRepository = (): CourseRepositoryPort => {
            COALESCE(cs.review_count, 0) as review_count,
            COALESCE(cs.total_revenue, 0) as total_revenue
          FROM courses c
-         LEFT JOIN course_stats cs ON c.id = cs.course_id
+         LEFT JOIN course_statistics cs ON c.id = cs.course_id
          WHERE c.id = $1 AND c.deleted_at IS NULL`,
         [id]
       );
-      return result.rows[0] ?? null;
+      return result.rows[0] ? mapToCourseWithStats(result.rows[0]) : null;
+    },
+
+    findAssets: async (courseId: string): Promise<CourseAsset[]> => {
+      interface AssetRow {
+        id: string;
+        course_id: string;
+        asset_type: CourseAsset["assetType"];
+        file_name: string;
+        file_size: number;
+        storage_path: string;
+        mime_type: string;
+        duration?: number;
+        metadata?: Record<string, unknown>;
+        created_at: Date;
+      }
+
+      const result = await query<AssetRow>(
+        `SELECT id, course_id, asset_type, file_name, file_size,
+                storage_path, mime_type, duration, metadata, created_at
+         FROM course_assets
+         WHERE course_id = $1
+         ORDER BY created_at DESC`,
+        [courseId]
+      );
+
+      return result.rows.map((row) => ({
+        id: row["id"],
+        courseId: row["course_id"],
+        assetType: row["asset_type"],
+        fileName: row["file_name"],
+        fileSize: Number(row["file_size"]),
+        storagePath: row["storage_path"],
+        mimeType: row["mime_type"],
+        duration: row["duration"],
+        metadata: row["metadata"],
+        createdAt: row["created_at"],
+      }));
     },
   };
 };

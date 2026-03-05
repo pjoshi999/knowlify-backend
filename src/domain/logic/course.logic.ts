@@ -1,5 +1,5 @@
 import { Course, CourseStatus } from "../types/course.types.js";
-import { DomainError } from "../errors/domain.errors.js";
+import { ValidationError } from "../errors/domain.errors.js";
 
 export const canPublishCourse = (course: Course): boolean => {
   if (course.status === "PUBLISHED") {
@@ -41,7 +41,7 @@ export const transitionCourseStatus = (
 
   const allowedTransitions = validTransitions[currentStatus];
   if (!allowedTransitions.includes(newStatus)) {
-    throw new DomainError(
+    throw new ValidationError(
       `Cannot transition from ${currentStatus} to ${newStatus}`
     );
   }

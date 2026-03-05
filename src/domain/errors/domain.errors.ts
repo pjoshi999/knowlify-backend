@@ -1,6 +1,20 @@
 export class DomainError extends Error {
-  constructor(message: string) {
+  public readonly code: string;
+  public readonly statusCode: number;
+  public readonly details?: unknown;
+
+  constructor(
+    message: string,
+    options?: {
+      code?: string;
+      statusCode?: number;
+      details?: unknown;
+    }
+  ) {
     super(message);
+    this.code = options?.code ?? "DOMAIN_ERROR";
+    this.statusCode = options?.statusCode ?? 400;
+    this.details = options?.details;
     this.name = this.constructor.name;
     Error.captureStackTrace(this, this.constructor);
   }
@@ -11,47 +25,72 @@ export class ValidationError extends DomainError {
     message: string,
     public readonly field?: string
   ) {
-    super(message);
+    super(message, {
+      code: "VALIDATION_ERROR",
+      statusCode: 422,
+      details: field ? { field } : undefined,
+    });
   }
 }
 
 export class NotFoundError extends DomainError {
   constructor(resource: string, id?: string) {
-    super(id ? `${resource} with id ${id} not found` : `${resource} not found`);
+    const message = resource.toLowerCase().includes("not found")
+      ? resource
+      : id
+        ? `${resource} with id ${id} not found`
+        : `${resource} not found`;
+
+    super(message, {
+      code: "NOT_FOUND",
+      statusCode: 404,
+    });
   }
 }
 
 export class UnauthorizedError extends DomainError {
   constructor(message: string = "Unauthorized") {
-    super(message);
+    super(message, {
+      code: "UNAUTHORIZED",
+      statusCode: 401,
+    });
   }
 }
 
 export class ForbiddenError extends DomainError {
   constructor(message: string = "Forbidden") {
-    super(message);
+    super(message, {
+      code: "FORBIDDEN",
+      statusCode: 403,
+    });
   }
 }
 
 export class ConflictError extends DomainError {
   constructor(message: string) {
-    super(message);
+    super(message, {
+      code: "CONFLICT",
+      statusCode: 409,
+    });
   }
 }
 
 export class InvalidCredentialsError extends DomainError {
   constructor() {
-    super("Invalid email or password");
+    super("Invalid email or password", {
+      code: "INVALID_CREDENTIALS",
+      statusCode: 401,
+    });
   }
 }
 
-export class TokenExpiredError extends DomainError {
+export class TokenExpiredError extends UnauthorizedError {
   constructor() {
     super("Token has expired");
   }
 }
 
-export class InvalidTokenError extends DomainError {
+export class InvalidTokenError extends UnauthorizedError {
   constructor() {
     super("Invalid token");
   }

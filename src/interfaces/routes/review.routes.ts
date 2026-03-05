@@ -15,6 +15,7 @@ import {
   CreateReviewInput,
   UpdateReviewInput,
 } from "../../domain/types/review.types.js";
+import { sendMessage, sendSuccess } from "../utils/response.js";
 
 interface ReviewRoutesConfig {
   reviewRepository: ReviewRepositoryPort;
@@ -45,7 +46,7 @@ export const createReviewRoutes = ({
         const reviews = await getCourseReviews(
           req.params["courseId"] as string
         );
-        res.json({ success: true, data: reviews });
+        sendSuccess(res, reviews);
       } catch (error) {
         next(error);
       }
@@ -63,7 +64,7 @@ export const createReviewRoutes = ({
           studentId: req.user!.id,
         };
         const review = await createReview(input);
-        res.status(201).json({ success: true, data: review });
+        sendSuccess(res, review, 201);
       } catch (error) {
         next(error);
       }
@@ -78,7 +79,7 @@ export const createReviewRoutes = ({
       try {
         const input: UpdateReviewInput = req.body;
         const review = await updateReview(req.params["id"] as string, input);
-        res.json({ success: true, data: review });
+        sendSuccess(res, review);
       } catch (error) {
         next(error);
       }
@@ -92,7 +93,7 @@ export const createReviewRoutes = ({
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         await deleteReview(req.params["id"] as string);
-        res.json({ success: true, data: { message: "Review deleted" } });
+        sendMessage(res, "Review deleted");
       } catch (error) {
         next(error);
       }

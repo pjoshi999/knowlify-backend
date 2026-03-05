@@ -6,7 +6,7 @@ import {
 } from "../../../domain/logic/course.logic.js";
 import {
   NotFoundError,
-  DomainError,
+  ValidationError,
 } from "../../../domain/errors/domain.errors.js";
 
 export type PublishCourseUseCase = (id: string) => Promise<Course>;
@@ -22,7 +22,7 @@ export const createPublishCourseUseCase = (
     }
 
     if (!canPublishCourse(course)) {
-      throw new DomainError(
+      throw new ValidationError(
         "Course cannot be published. Ensure it has a name, description, price, and at least one module."
       );
     }

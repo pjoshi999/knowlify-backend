@@ -6,6 +6,7 @@ import {
   RequestHandler,
 } from "express";
 import { CourseRepositoryPort } from "../../application/ports/course.repository.port.js";
+import { CachePort } from "../../application/ports/cache.port.js";
 import { createCreateCourseUseCase } from "../../application/use-cases/course/create-course.use-case.js";
 import { createGetCourseUseCase } from "../../application/use-cases/course/get-course.use-case.js";
 import { createListCoursesUseCase } from "../../application/use-cases/course/list-courses.use-case.js";
@@ -18,15 +19,22 @@ import {
   CourseListFilters,
   CoursePaginationParams,
 } from "../../domain/types/course.types.js";
+import {
+  createCacheMiddleware,
+  createCacheInvalidationMiddleware,
+} from "../middleware/cache.middleware.js";
+import { sendMessage, sendSuccess } from "../utils/response.js";
 
 interface CourseRoutesConfig {
   courseRepository: CourseRepositoryPort;
+  cache: CachePort;
   authenticate: RequestHandler;
   authorizeInstructor: RequestHandler;
 }
 
 export const createCourseRoutes = ({
   courseRepository,
+  cache,
   authenticate,
   authorizeInstructor,
 }: CourseRoutesConfig): Router => {
@@ -39,51 +47,91 @@ export const createCourseRoutes = ({
   const deleteCourse = createDeleteCourseUseCase(courseRepository);
   const publishCourse = createPublishCourseUseCase(courseRepository);
 
-  // Public routes
-  router.get("/", async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const filters: CourseListFilters = {
-        category: req.query["category"] as string,
-        minPrice: req.query["minPrice"]
-          ? parseFloat(req.query["minPrice"] as string)
-          : undefined,
-        maxPrice: req.query["maxPrice"]
-          ? parseFloat(req.query["maxPrice"] as string)
-          : undefined,
-        minRating: req.query["minRating"]
-          ? parseFloat(req.query["minRating"] as string)
-          : undefined,
-        status: req.query["status"] as "DRAFT" | "PUBLISHED" | "ARCHIVED",
-        instructorId: req.query["instructorId"] as string,
-        search: req.query["search"] as string,
-      };
-
-      const pagination: CoursePaginationParams = {
-        page: req.query["page"] ? parseInt(req.query["page"] as string, 10) : 1,
-        limit: req.query["limit"]
-          ? parseInt(req.query["limit"] as string, 10)
-          : 20,
-        sortBy: req.query["sortBy"] as
-          | "createdAt"
-          | "priceAmount"
-          | "enrollmentCount"
-          | "avgRating",
-        sortOrder: req.query["sortOrder"] as "asc" | "desc",
-      };
-
-      const result = await listCourses(filters, pagination);
-      res.json({ success: true, data: result });
-    } catch (error) {
-      next(error);
-    }
+  // Cache middleware for course list (5 minutes)
+  const cacheList = createCacheMiddleware(cache, {
+    ttl: 300,
+    keyPrefix: "courses:list",
   });
+
+  // Cache middleware for single course (10 minutes)
+  const cacheCourse = createCacheMiddleware(cache, {
+    ttl: 600,
+    keyPrefix: "courses:detail",
+  });
+
+  // Cache invalidation for course mutations
+  const invalidateCourseCache = createCacheInvalidationMiddleware(cache, [
+    "courses:list:*",
+    "courses:detail:*",
+  ]);
+
+  // Public routes
+  router.get(
+    "/",
+    cacheList,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const filters: CourseListFilters = {
+          category: req.query["category"] as string,
+          minPrice: req.query["minPrice"]
+            ? parseFloat(req.query["minPrice"] as string)
+            : undefined,
+          maxPrice: req.query["maxPrice"]
+            ? parseFloat(req.query["maxPrice"] as string)
+            : undefined,
+          minRating: req.query["minRating"]
+            ? parseFloat(req.query["minRating"] as string)
+            : undefined,
+          status: req.query["status"] as "DRAFT" | "PUBLISHED" | "ARCHIVED",
+          instructorId: req.query["instructorId"] as string,
+          search: req.query["search"] as string,
+        };
+
+        const pagination: CoursePaginationParams = {
+          page: req.query["page"]
+            ? parseInt(req.query["page"] as string, 10)
+            : 1,
+          limit: req.query["limit"]
+            ? parseInt(req.query["limit"] as string, 10)
+            : 20,
+          sortBy: req.query["sortBy"] as
+            | "createdAt"
+            | "priceAmount"
+            | "enrollmentCount"
+            | "avgRating",
+          sortOrder: req.query["sortOrder"] as "asc" | "desc",
+        };
+
+        const result = await listCourses(filters, pagination);
+        sendSuccess(res, result);
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
 
   router.get(
     "/:id",
+    cacheCourse,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const course = await getCourse(req.params["id"] as string);
-        res.json({ success: true, data: course });
+        sendSuccess(res, course);
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  // Get course assets
+  router.get(
+    "/:id/assets",
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const assets = await courseRepository.findAssets(
+          req.params["id"] as string
+        );
+        sendSuccess(res, assets);
       } catch (error) {
         next(error);
       }
@@ -95,14 +143,19 @@ export const createCourseRoutes = ({
     "/",
     authenticate,
     authorizeInstructor,
+    invalidateCourseCache,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
+        const body = req.body as unknown as Omit<
+          CreateCourseInput,
+          "instructorId"
+        >;
         const input: CreateCourseInput = {
-          ...req.body,
+          ...body,
           instructorId: req.user!.id,
         };
         const course = await createCourse(input);
-        res.status(201).json({ success: true, data: course });
+        sendSuccess(res, course, 201);
       } catch (error) {
         next(error);
       }
@@ -113,11 +166,12 @@ export const createCourseRoutes = ({
     "/:id",
     authenticate,
     authorizeInstructor,
+    invalidateCourseCache,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const input: UpdateCourseInput = req.body;
+        const input = req.body as unknown as UpdateCourseInput;
         const course = await updateCourse(req.params["id"] as string, input);
-        res.json({ success: true, data: course });
+        sendSuccess(res, course);
       } catch (error) {
         next(error);
       }
@@ -128,10 +182,11 @@ export const createCourseRoutes = ({
     "/:id",
     authenticate,
     authorizeInstructor,
+    invalidateCourseCache,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         await deleteCourse(req.params["id"] as string);
-        res.json({ success: true, data: { message: "Course deleted" } });
+        sendMessage(res, "Course deleted");
       } catch (error) {
         next(error);
       }
@@ -142,10 +197,11 @@ export const createCourseRoutes = ({
     "/:id/publish",
     authenticate,
     authorizeInstructor,
+    invalidateCourseCache,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const course = await publishCourse(req.params["id"] as string);
-        res.json({ success: true, data: course });
+        sendSuccess(res, course);
       } catch (error) {
         next(error);
       }

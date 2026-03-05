@@ -100,8 +100,8 @@ export const config: Config = {
   },
   database: {
     url: getEnv("DATABASE_URL"),
-    poolMin: getEnvNumber("DATABASE_POOL_MIN", 10),
-    poolMax: getEnvNumber("DATABASE_POOL_MAX", 50),
+    poolMin: getEnvNumber("DATABASE_POOL_MIN", 2),
+    poolMax: getEnvNumber("DATABASE_POOL_MAX", 10),
   },
   redis: {
     host: getEnv("REDIS_HOST", "localhost"),
@@ -153,8 +153,6 @@ export const config: Config = {
 };
 
 export const validateConfig = (): void => {
-  console.warn("Validating configuration...");
-
   if (config.jwt.secret.length < 32) {
     throw new Error("JWT_SECRET must be at least 32 characters");
   }
@@ -162,6 +160,4 @@ export const validateConfig = (): void => {
   if (config.jwt.refreshSecret.length < 32) {
     throw new Error("JWT_REFRESH_SECRET must be at least 32 characters");
   }
-
-  console.warn("Configuration validated successfully");
 };

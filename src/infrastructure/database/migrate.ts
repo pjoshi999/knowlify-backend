@@ -4,9 +4,11 @@ import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 
 import { createDatabasePool, closeDatabasePool, query } from "./pool.js";
+import { createModuleLogger } from "../../shared/logger.js";
 
 dotenv.config();
 
+const log = createModuleLogger("migration");
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -57,7 +59,10 @@ const getMigrationFiles = async (): Promise<Migration[]> => {
 };
 
 const executeMigration = async (migration: Migration): Promise<void> => {
-  console.warn(`Executing migration ${migration.id}: ${migration.name}`);
+  log.info(
+    { migrationId: migration.id, name: migration.name },
+    `Executing migration ${migration.id}: ${migration.name}`
+  );
 
   await query(migration.sql);
 
@@ -66,14 +71,17 @@ const executeMigration = async (migration: Migration): Promise<void> => {
     migration.name,
   ]);
 
-  console.warn(`Migration ${migration.id} completed`);
+  log.info(
+    { migrationId: migration.id },
+    `Migration ${migration.id} completed`
+  );
 };
 
 export const runMigrations = async (
   connectionString: string
 ): Promise<void> => {
   try {
-    createDatabasePool({ connectionString });
+    await createDatabasePool({ connectionString });
 
     await createMigrationsTable();
 
@@ -85,19 +93,22 @@ export const runMigrations = async (
     );
 
     if (pendingMigrations.length === 0) {
-      console.warn("No pending migrations");
+      log.info("No pending migrations");
       return;
     }
 
-    console.warn(`Found ${pendingMigrations.length} pending migrations`);
+    log.info(
+      { count: pendingMigrations.length },
+      `Found ${pendingMigrations.length} pending migrations`
+    );
 
     for (const migration of pendingMigrations) {
       await executeMigration(migration);
     }
 
-    console.warn("All migrations completed successfully");
+    log.info("All migrations completed successfully");
   } catch (error) {
-    console.error("Migration failed", error);
+    log.error({ err: error }, "Migration failed");
     throw error;
   } finally {
     await closeDatabasePool();
@@ -108,17 +119,17 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const connectionString = process.env["DATABASE_URL"];
 
   if (!connectionString) {
-    console.error("DATABASE_URL environment variable is required");
+    log.fatal("DATABASE_URL environment variable is required");
     process.exit(1);
   }
 
   runMigrations(connectionString)
     .then(() => {
-      console.warn("Migrations completed");
+      log.info("Migrations completed");
       process.exit(0);
     })
     .catch((error) => {
-      console.error("Migration error:", error);
+      log.fatal({ err: error }, "Migration error");
       process.exit(1);
     });
 }

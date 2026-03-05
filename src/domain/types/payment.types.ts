@@ -20,7 +20,7 @@ export interface Payment {
 export interface CreatePaymentIntentInput {
   studentId: string;
   courseId: string;
-  amount: number;
+  amount?: number; // optional; derived from course price if not provided
   currency?: string;
 }
 

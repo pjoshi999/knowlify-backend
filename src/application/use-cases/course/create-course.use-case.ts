@@ -18,12 +18,14 @@ export const createCreateCourseUseCase = (
 ): CreateCourseUseCase => {
   return async (input: CreateCourseInput): Promise<Course> => {
     // Validate inputs
-    if (!validateCourseName(input.name)) {
-      throw new ValidationError("Invalid course name");
+    const nameError = validateCourseName(input.name);
+    if (nameError) {
+      throw new ValidationError(nameError);
     }
 
-    if (!validateCourseDescription(input.description)) {
-      throw new ValidationError("Invalid course description");
+    const descriptionError = validateCourseDescription(input.description);
+    if (descriptionError) {
+      throw new ValidationError(descriptionError);
     }
 
     const priceError = validatePrice(input.priceAmount);

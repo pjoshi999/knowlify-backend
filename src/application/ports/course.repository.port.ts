@@ -1,5 +1,6 @@
 import {
   Course,
+  CourseAsset,
   CreateCourseInput,
   UpdateCourseInput,
   CourseWithStats,
@@ -23,4 +24,5 @@ export interface CourseRepositoryPort {
   archive: (id: string) => Promise<Course>;
   exists: (id: string) => Promise<boolean>;
   getStats: (id: string) => Promise<CourseWithStats | null>;
+  findAssets: (courseId: string) => Promise<CourseAsset[]>;
 }

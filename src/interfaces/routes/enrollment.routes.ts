@@ -9,6 +9,7 @@ import { EnrollmentRepositoryPort } from "../../application/ports/enrollment.rep
 import { createGetStudentEnrollmentsUseCase } from "../../application/use-cases/enrollment/get-student-enrollments.use-case.js";
 import { createUpdateProgressUseCase } from "../../application/use-cases/enrollment/update-progress.use-case.js";
 import { UpdateProgressInput } from "../../domain/types/enrollment.types.js";
+import { sendSuccess } from "../utils/response.js";
 
 interface EnrollmentRoutesConfig {
   enrollmentRepository: EnrollmentRepositoryPort;
@@ -32,7 +33,7 @@ export const createEnrollmentRoutes = ({
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const enrollments = await getStudentEnrollments(req.user!.id);
-        res.json({ success: true, data: enrollments });
+        sendSuccess(res, enrollments);
       } catch (error) {
         next(error);
       }
@@ -50,7 +51,7 @@ export const createEnrollmentRoutes = ({
           req.params["id"] as string,
           input
         );
-        res.json({ success: true, data: enrollment });
+        sendSuccess(res, enrollment);
       } catch (error) {
         next(error);
       }

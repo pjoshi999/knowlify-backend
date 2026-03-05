@@ -9,7 +9,7 @@ import { canReviewCourse } from "../../../domain/logic/enrollment.logic.js";
 import {
   ValidationError,
   NotFoundError,
-  DomainError,
+  ConflictError,
 } from "../../../domain/errors/domain.errors.js";
 
 export type CreateReviewUseCase = (input: CreateReviewInput) => Promise<Review>;
@@ -36,7 +36,7 @@ export const createCreateReviewUseCase = (
 
     // Check if student can review
     if (!canReviewCourse(enrollment)) {
-      throw new DomainError(
+      throw new ConflictError(
         "You must complete at least one lesson before reviewing"
       );
     }
@@ -48,7 +48,7 @@ export const createCreateReviewUseCase = (
     );
 
     if (existingReview) {
-      throw new DomainError("You have already reviewed this course");
+      throw new ConflictError("You have already reviewed this course");
     }
 
     const review = await reviewRepository.create(input);

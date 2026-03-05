@@ -7,7 +7,7 @@ import {
 import { canEnrollInCourse } from "../../../domain/logic/enrollment.logic.js";
 import {
   NotFoundError,
-  DomainError,
+  ConflictError,
 } from "../../../domain/errors/domain.errors.js";
 
 export type CreateEnrollmentUseCase = (
@@ -34,7 +34,7 @@ export const createCreateEnrollmentUseCase = (
 
     // Check enrollment eligibility
     if (!canEnrollInCourse(course, existingEnrollment)) {
-      throw new DomainError(
+      throw new ConflictError(
         "Cannot enroll in this course. It may not be published or you may already be enrolled."
       );
     }

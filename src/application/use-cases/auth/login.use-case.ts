@@ -46,7 +46,7 @@ export const createLoginUseCase = (
       throw new InvalidCredentialsError();
     }
 
-    const token = await authService.generateToken(
+    const accessToken = await authService.generateToken(
       user.id,
       user.email,
       user.role
@@ -58,7 +58,7 @@ export const createLoginUseCase = (
 
     return {
       userId: user.id,
-      token,
+      accessToken,
       refreshToken,
       expiresAt,
     };

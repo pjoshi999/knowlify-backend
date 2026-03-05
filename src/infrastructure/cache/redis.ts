@@ -1,4 +1,7 @@
 import { createClient, RedisClientType } from "redis";
+import { createModuleLogger } from "../../shared/logger.js";
+
+const log = createModuleLogger("redis");
 
 interface RedisConfig {
   host: string;
@@ -26,19 +29,15 @@ export const createRedisClient = async (
   });
 
   client.on("error", (err: Error) => {
-    console.error("Redis client error", err);
+    log.error({ err }, "Redis client error");
   });
 
   client.on("connect", () => {
-    console.warn("Redis client connected");
-  });
-
-  client.on("ready", () => {
-    console.warn("Redis client ready");
+    log.info({ host: config.host, port: config.port }, "Redis connected");
   });
 
   client.on("end", () => {
-    console.warn("Redis client disconnected");
+    log.warn("Redis client disconnected");
   });
 
   await client.connect();
@@ -67,7 +66,7 @@ export const redisHealthCheck = async (): Promise<boolean> => {
     const pong = await getRedisClient().ping();
     return pong === "PONG";
   } catch (error) {
-    console.error("Redis health check failed", error);
+    log.error({ err: error }, "Redis health check failed");
     return false;
   }
 };

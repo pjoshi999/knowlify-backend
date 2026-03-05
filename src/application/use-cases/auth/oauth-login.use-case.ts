@@ -45,7 +45,7 @@ export const createOAuthLoginUseCase = (
       }
     }
 
-    const token = await authService.generateToken(
+    const accessToken = await authService.generateToken(
       user.id,
       user.email,
       user.role
@@ -57,7 +57,7 @@ export const createOAuthLoginUseCase = (
 
     return {
       userId: user.id,
-      token,
+      accessToken,
       refreshToken,
       expiresAt,
     };
