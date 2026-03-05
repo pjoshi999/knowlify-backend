@@ -1,4 +1,5 @@
 import dns from "node:dns";
+import { URL } from "node:url";
 import { RequestHandler } from "express";
 import { config, validateConfig } from "./shared/config.js";
 import { createModuleLogger } from "./shared/logger.js";
@@ -60,15 +61,63 @@ const configureDnsResolution = (): void => {
   );
 };
 
+const shouldForceDatabaseIpv4 = (): boolean => {
+  const envValue = process.env["DB_FORCE_IPV4"];
+  if (envValue === "true") return true;
+  if (envValue === "false") return false;
+  return config.server.nodeEnv === "production";
+};
+
+const resolveDatabaseConnectionString = async (
+  connectionString: string
+): Promise<string> => {
+  // Supabase PgBouncer pooler requires the exact hostname (SNI) to route tenant
+  // connections. If we resolve it to an IPv4 address, it fails with "Tenant or user not found".
+  if (
+    !shouldForceDatabaseIpv4() ||
+    connectionString.includes("pooler.supabase.com")
+  ) {
+    return connectionString;
+  }
+
+  try {
+    const parsed = new URL(connectionString);
+    const originalHost = parsed.hostname;
+    if (!originalHost) return connectionString;
+
+    const resolved = await dns.promises.lookup(originalHost, { family: 4 });
+    parsed.hostname = resolved.address;
+
+    log.info(
+      {
+        dbHost: originalHost,
+        dbHostIpv4: resolved.address,
+      },
+      "Resolved database host to IPv4"
+    );
+
+    return parsed.toString();
+  } catch (error) {
+    log.warn(
+      { err: error },
+      "Failed to resolve DB host to IPv4; using original connection string"
+    );
+    return connectionString;
+  }
+};
+
 const startServer = async (): Promise<void> => {
   try {
     configureDnsResolution();
     validateConfig();
 
     await wakeupSupabase();
+    const dbConnectionString = await resolveDatabaseConnectionString(
+      config.database.url
+    );
 
     createDatabasePool({
-      connectionString: config.database.url,
+      connectionString: dbConnectionString,
       max: config.database.poolMax,
     });
 
