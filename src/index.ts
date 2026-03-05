@@ -1,3 +1,4 @@
+import dns from "node:dns";
 import { RequestHandler } from "express";
 import { config, validateConfig } from "./shared/config.js";
 import { createModuleLogger } from "./shared/logger.js";
@@ -38,8 +39,30 @@ import { startDbKeepaliveScheduler } from "./infrastructure/queue/db-keepalive.w
 
 const log = createModuleLogger("server");
 
+const configureDnsResolution = (): void => {
+  const envOrder = process.env["DNS_RESULT_ORDER"];
+  const desiredOrder =
+    envOrder ??
+    (config.server.nodeEnv === "production" ? "ipv4first" : "verbatim");
+
+  if (desiredOrder === "ipv4first" || desiredOrder === "verbatim") {
+    dns.setDefaultResultOrder(desiredOrder);
+    log.info(
+      { dnsResultOrder: desiredOrder },
+      "Configured default DNS result order"
+    );
+    return;
+  }
+
+  log.warn(
+    { dnsResultOrder: desiredOrder },
+    "Ignoring invalid DNS_RESULT_ORDER; expected ipv4first or verbatim"
+  );
+};
+
 const startServer = async (): Promise<void> => {
   try {
+    configureDnsResolution();
     validateConfig();
 
     await wakeupSupabase();
