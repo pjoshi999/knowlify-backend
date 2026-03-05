@@ -16,16 +16,31 @@ let isConnecting = false;
 const delay = (ms: number): Promise<void> =>
   new Promise((resolve) => globalThis.setTimeout(resolve, ms));
 
+interface DatabaseConnectionErrorInfo {
+  code?: string;
+  message: string;
+}
+
 /** Verify the pool has a live connection by running SELECT 1. */
-const verifyConnection = async (): Promise<boolean> => {
-  if (!pool) return false;
+const verifyConnection = async (): Promise<{
+  ok: boolean;
+  error?: DatabaseConnectionErrorInfo;
+}> => {
+  if (!pool) return { ok: false, error: { message: "Pool not initialized" } };
   try {
     const client = await pool.connect();
     await client.query("SELECT 1");
     client.release();
-    return true;
-  } catch {
-    return false;
+    return { ok: true };
+  } catch (error) {
+    const err = error as { code?: string; message?: string };
+    return {
+      ok: false,
+      error: {
+        code: err.code,
+        message: err.message ?? "Unknown database connection error",
+      },
+    };
   }
 };
 
@@ -38,7 +53,7 @@ const startBackgroundReconnect = (config: DatabaseConfig): void => {
 
     while (!isReady) {
       attempt++;
-      const ok = await verifyConnection();
+      const { ok, error } = await verifyConnection();
 
       if (ok) {
         isReady = true;
@@ -56,7 +71,12 @@ const startBackgroundReconnect = (config: DatabaseConfig): void => {
       }
       const backoffMs = Math.min(Math.pow(2, attempt) * 1000, 15000);
       log.warn(
-        { attempt, backoffMs },
+        {
+          attempt,
+          backoffMs,
+          errorCode: error?.code,
+          errorMessage: error?.message,
+        },
         "Database not yet reachable — retrying in background..."
       );
       await delay(backoffMs);
@@ -67,9 +87,15 @@ const startBackgroundReconnect = (config: DatabaseConfig): void => {
 const keepAliveLoop = async (config: DatabaseConfig): Promise<void> => {
   while (true) {
     await delay(30_000);
-    const ok = await verifyConnection();
+    const { ok, error } = await verifyConnection();
     if (!ok) {
-      log.warn("Keep-alive ping failed — re-arming background reconnect");
+      log.warn(
+        {
+          errorCode: error?.code,
+          errorMessage: error?.message,
+        },
+        "Keep-alive ping failed — re-arming background reconnect"
+      );
       isReady = false;
       startBackgroundReconnect(config);
       return;
