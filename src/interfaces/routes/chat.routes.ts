@@ -602,21 +602,28 @@ User message: ${userMessage}`;
 
           const fileName = entry.entryName;
           const fileBuffer = entry.getData();
+          const fileSize = entry.header.size;
 
-          // Determine MIME type based on file extension
+          // Determine MIME type and asset type based on file extension
           const fileExt = fileName.split(".").pop()?.toLowerCase() || "";
           let mimeType = "application/octet-stream";
+          let assetType: "VIDEO" | "PDF" | "NOTE" | "OTHER" = "OTHER";
+          
           if (["mp4", "avi", "mov", "wmv", "webm"].includes(fileExt)) {
             mimeType = `video/${fileExt}`;
+            assetType = "VIDEO";
           } else if (fileExt === "pdf") {
             mimeType = "application/pdf";
-          } else if (["doc", "docx"].includes(fileExt)) {
-            mimeType =
-              "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-          } else if (fileExt === "txt") {
-            mimeType = "text/plain";
-          } else if (fileExt === "md") {
-            mimeType = "text/markdown";
+            assetType = "PDF";
+          } else if (["doc", "docx", "txt", "md"].includes(fileExt)) {
+            if (fileExt === "txt") {
+              mimeType = "text/plain";
+            } else if (fileExt === "md") {
+              mimeType = "text/markdown";
+            } else {
+              mimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+            }
+            assetType = "NOTE";
           }
 
           // Upload to S3
@@ -631,10 +638,39 @@ User message: ${userMessage}`;
             url: result.url,
           });
 
-          log.info(
-            { sessionId, courseId, fileName, url: result.url },
-            "Uploaded asset to S3"
-          );
+          // Insert into course_assets table
+          if (courseRepository) {
+            try {
+              await courseRepository.createAsset({
+                courseId,
+                assetType,
+                fileName: fileName.split("/").pop() || fileName,
+                fileSize,
+                storagePath: result.url,
+                mimeType,
+                metadata: {
+                  originalPath: fileName,
+                  uploadedAt: new Date().toISOString(),
+                },
+              });
+              
+              log.info(
+                { sessionId, courseId, fileName, url: result.url, assetType },
+                "Uploaded asset to S3 and inserted into database"
+              );
+            } catch (dbError) {
+              log.error(
+                { err: dbError, sessionId, courseId, fileName },
+                "Failed to insert asset into database, but S3 upload succeeded"
+              );
+              // Continue even if database insert fails - S3 upload succeeded
+            }
+          } else {
+            log.info(
+              { sessionId, courseId, fileName, url: result.url },
+              "Uploaded asset to S3 (database insert skipped - no repository)"
+            );
+          }
         }
 
         log.info(
