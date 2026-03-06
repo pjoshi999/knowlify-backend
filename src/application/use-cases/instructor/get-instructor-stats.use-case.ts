@@ -33,21 +33,26 @@ export const createGetInstructorStatsUseCase = (
 
     // Get total enrollments across all courses
     let totalEnrollments = 0;
+    let totalRevenue = 0;
+    let totalReviews = 0;
+    let weightedRatingSum = 0;
+
     for (const course of courses.data) {
       totalEnrollments += course.enrollmentCount || 0;
+      totalRevenue += course.totalRevenue || 0;
+
+      // Weight ratings by number of reviews for accurate average
+      const courseReviews = course.reviewCount || 0;
+      const courseRating = course.avgRating || 0;
+      totalReviews += courseReviews;
+      weightedRatingSum += courseRating * courseReviews;
     }
 
-    // Calculate average rating
-    const ratingsSum = courses.data.reduce(
-      (sum: number, course: CourseWithStats) => sum + (course.avgRating || 0),
-      0
-    );
+    // Calculate weighted average rating
     const averageRating =
-      publishedCourses > 0 ? ratingsSum / publishedCourses : 0;
+      totalReviews > 0 ? weightedRatingSum / totalReviews : 0;
 
-    // Get revenue stats (would need to implement in payment repository)
-    // For now, return placeholder values
-    const totalRevenue = 0;
+    // TODO: Implement recent stats (last 30 days) - requires date filtering in repository
     const recentRevenue = 0;
     const recentEnrollments = 0;
 

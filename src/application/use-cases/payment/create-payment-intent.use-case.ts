@@ -24,7 +24,7 @@ export const createCreatePaymentIntentUseCase = (
       throw new NotFoundError("Course not found");
     }
 
-    const amountInCents = Math.round(input.amount ?? course.priceAmount * 100);
+    const amountInCents = Math.round(input.amount ?? course.priceAmount);
 
     const paymentIntent = await paymentGateway.createPaymentIntent(
       amountInCents,
