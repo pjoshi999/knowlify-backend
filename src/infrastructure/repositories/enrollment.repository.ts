@@ -6,6 +6,9 @@ import {
 } from "../../domain/types/enrollment.types.js";
 import { EnrollmentRepositoryPort } from "../../application/ports/enrollment.repository.port.js";
 import { query } from "../database/pool.js";
+import { createModuleLogger } from "../../shared/logger.js";
+
+const log = createModuleLogger("enrollment-repository");
 
 export const createEnrollmentRepository = (): EnrollmentRepositoryPort => {
   return {
@@ -31,21 +34,41 @@ export const createEnrollmentRepository = (): EnrollmentRepositoryPort => {
     findByStudent: async (
       studentId: string
     ): Promise<EnrollmentWithCourse[]> => {
-      const result = await query<EnrollmentWithCourse>(
-        `SELECT 
-           e.*,
-           c.name as course_name,
-           c.thumbnail_url as course_thumbnail_url,
-           u.name as instructor_name,
-           0 as completion_percentage
-         FROM enrollments e
-         JOIN courses c ON e.course_id = c.id
-         JOIN users u ON c.instructor_id = u.id
-         WHERE e.student_id = $1
-         ORDER BY e.last_accessed_at DESC`,
-        [studentId]
-      );
-      return result.rows;
+      log.info({ studentId }, "Querying enrollments for student");
+
+      try {
+        const result = await query<EnrollmentWithCourse>(
+          `SELECT 
+             e.id,
+             e.student_id,
+             e.course_id,
+             e.payment_id,
+             e.progress,
+             e.enrolled_at,
+             e.last_accessed_at,
+             e.completed_at,
+             c.name as course_name,
+             c.thumbnail_url as course_thumbnail_url,
+             u.name as instructor_name,
+             0 as completion_percentage
+           FROM enrollments e
+           JOIN courses c ON e.course_id = c.id
+           JOIN users u ON c.instructor_id = u.id
+           WHERE e.student_id = $1
+           ORDER BY e.last_accessed_at DESC`,
+          [studentId]
+        );
+
+        log.info(
+          { studentId, rowCount: result.rows.length },
+          "Enrollment query completed"
+        );
+
+        return result.rows;
+      } catch (error) {
+        log.error({ err: error, studentId }, "Error querying enrollments");
+        throw error;
+      }
     },
 
     findByCourse: async (courseId: string): Promise<Enrollment[]> => {

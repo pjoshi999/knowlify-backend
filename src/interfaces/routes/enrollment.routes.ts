@@ -10,6 +10,9 @@ import { createGetStudentEnrollmentsUseCase } from "../../application/use-cases/
 import { createUpdateProgressUseCase } from "../../application/use-cases/enrollment/update-progress.use-case.js";
 import { UpdateProgressInput } from "../../domain/types/enrollment.types.js";
 import { sendSuccess } from "../utils/response.js";
+import { createModuleLogger } from "../../shared/logger.js";
+
+const log = createModuleLogger("enrollment-routes");
 
 interface EnrollmentRoutesConfig {
   enrollmentRepository: EnrollmentRepositoryPort;
@@ -32,9 +35,22 @@ export const createEnrollmentRoutes = ({
     authenticate,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const enrollments = await getStudentEnrollments(req.user!.id);
+        const userId = req.user!.id;
+        log.info({ userId }, "Fetching enrollments for user");
+
+        const enrollments = await getStudentEnrollments(userId);
+
+        log.info(
+          { userId, enrollmentCount: enrollments.length },
+          "Enrollments fetched successfully"
+        );
+
         sendSuccess(res, enrollments);
       } catch (error) {
+        log.error(
+          { err: error, userId: req.user?.id },
+          "Error fetching enrollments"
+        );
         next(error);
       }
     }
