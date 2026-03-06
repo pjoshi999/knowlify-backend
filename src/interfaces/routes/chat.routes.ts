@@ -38,6 +38,7 @@ interface ChatRoutesConfig {
   authenticate: RequestHandler;
   chatRepository?: any; // Optional for now
   storageService?: any;
+  courseRepository?: any; // For asset upload
   queueService?: any; // Optional for now
 }
 
@@ -45,6 +46,7 @@ export const createChatRoutes = ({
   aiService,
   authenticate,
   storageService,
+  courseRepository,
 }: ChatRoutesConfig): Router => {
   const router = Router();
 
@@ -133,16 +135,59 @@ export const createChatRoutes = ({
         // Extract ZIP and get file list
         const zip = new AdmZip(req.file.buffer);
         const zipEntries = zip.getEntries();
+
+        // Filter out junk files and only include valid course assets
+        const validExtensions = [
+          "mp4",
+          "avi",
+          "mov",
+          "wmv",
+          "webm",
+          "pdf",
+          "doc",
+          "docx",
+          "txt",
+          "md",
+        ];
+        const junkFiles = [
+          ".ds_store",
+          "thumbs.db",
+          "__macosx",
+          ".git",
+          ".gitignore",
+          "desktop.ini",
+        ];
+
         const fileList = zipEntries
-          .filter((entry) => !entry.isDirectory)
+          .filter((entry) => {
+            if (entry.isDirectory) return false;
+
+            const fileName = entry.entryName.toLowerCase();
+
+            // Skip junk files
+            const isJunk = junkFiles.some((junk) => fileName.includes(junk));
+            if (isJunk) return false;
+
+            // Skip thumbnail files
+            if (fileName.includes("thumbnail") || fileName.includes("thumb"))
+              return false;
+
+            // Only include files with valid extensions
+            const fileExt = fileName.split(".").pop() || "";
+            return validExtensions.includes(fileExt);
+          })
           .map((entry) => entry.entryName);
 
         session.files = fileList;
         session.updatedAt = new Date();
 
         log.info(
-          { sessionId, fileCount: fileList.length },
-          "Extracted file list from ZIP"
+          {
+            sessionId,
+            fileCount: fileList.length,
+            totalEntries: zipEntries.length,
+          },
+          "Extracted and filtered file list from ZIP"
         );
 
         // Analyze structure with OpenAI
@@ -155,23 +200,24 @@ ${fileList.slice(0, 100).join("\n")}
 ${fileList.length > 100 ? `\n... and ${fileList.length - 100} more files` : ""}
 
 Instructions:
-1. Group related files into logical course sections (e.g., "Introduction", "Week 1", "Module 2", etc.)
-2. Determine the order of sections based on file names and structure
-3. Suggest a course name, description, category, and price based on the content
-4. Be intelligent about identifying videos, notes, assignments, and exams
+1. Group files by their folder names - each folder should become a section
+2. Use the folder name as the section title (e.g., "01 Introduction" folder → "Introduction" section)
+3. Preserve the numeric ordering from folder names (01, 02, 03, etc.)
+4. For the course name, use the first folder name or derive from the overall structure
+5. Identify file types: videos (.mp4, .mov, .avi), documents (.pdf, .doc), notes (.txt, .md)
 
 Return ONLY a valid JSON object with this exact structure (no markdown, no extra text):
 {
   "sections": [
     {
-      "title": "Section name",
+      "title": "Section name from folder",
       "order": 1,
-      "files": ["file1.pdf", "file2.mp4"],
+      "files": ["video.mp4", "notes.pdf"],
       "description": "Brief description of what this section covers"
     }
   ],
   "metadata": {
-    "suggestedName": "Course Name",
+    "suggestedName": "Course Name (derived from first folder or overall structure)",
     "suggestedDescription": "Detailed course description (2-3 sentences)",
     "suggestedCategory": "Programming|Design|Business|Marketing|Photography|Music|Health & Fitness|Language|Other",
     "suggestedPrice": 49.99
@@ -449,8 +495,25 @@ User message: ${userMessage}`;
           });
         }
 
-        const { courseName, courseDescription, courseCategory, coursePrice } =
-          req.body;
+        if (!storageService) {
+          return res
+            .status(500)
+            .json({ error: "Storage service not configured" });
+        }
+
+        if (!courseRepository) {
+          return res
+            .status(500)
+            .json({ error: "Course repository not configured" });
+        }
+
+        const {
+          courseName,
+          courseDescription,
+          courseCategory,
+          coursePrice,
+          thumbnailUrl,
+        } = req.body;
 
         if (!courseName || !courseDescription) {
           return res
@@ -465,7 +528,10 @@ User message: ${userMessage}`;
           });
         }
 
-        log.info({ sessionId, courseName }, "Finalizing course creation");
+        log.info(
+          { sessionId, courseName },
+          "Finalizing course creation - uploading assets and creating course"
+        );
 
         // Parse price - handle both string and number, ensure it's in cents
         let priceInCents: number;
@@ -482,7 +548,173 @@ User message: ${userMessage}`;
           priceInCents = 4999; // Default $49.99
         }
 
-        // Build manifest from analysis
+        // STEP 1: Create the course first to get courseId
+        log.info({ sessionId, courseName }, "Creating course record");
+
+        const newCourse = await courseRepository.create({
+          name: courseName,
+          description: courseDescription,
+          instructorId: req.user!.id,
+          category:
+            courseCategory ||
+            session.analysis.metadata?.suggestedCategory ||
+            "Other",
+          priceAmount: priceInCents,
+          priceCurrency: "USD",
+          thumbnailUrl: thumbnailUrl || session.thumbnailUrl,
+          manifest: {}, // Will be updated after asset upload
+        });
+
+        const courseId = newCourse.id;
+        log.info(
+          { sessionId, courseId },
+          "Course created, now uploading assets"
+        );
+
+        // STEP 2: Upload assets to S3 and insert into course_assets table
+        const zip = new AdmZip(session.fileBuffer);
+        const zipEntries = zip.getEntries();
+
+        // Filter out junk files
+        const validExtensions = [
+          "mp4",
+          "avi",
+          "mov",
+          "wmv",
+          "webm",
+          "pdf",
+          "doc",
+          "docx",
+          "txt",
+          "md",
+        ];
+        const junkFiles = [
+          ".ds_store",
+          "thumbs.db",
+          "__macosx",
+          ".git",
+          ".gitignore",
+          "desktop.ini",
+        ];
+
+        const uploadedAssets: Map<string, string> = new Map(); // filename -> S3 URL
+
+        for (const entry of zipEntries) {
+          if (entry.isDirectory) continue;
+
+          const fileName = entry.entryName;
+          const fileNameLower = fileName.toLowerCase();
+
+          // Skip junk files
+          const isJunk = junkFiles.some((junk) => fileNameLower.includes(junk));
+          if (isJunk) {
+            log.debug({ fileName }, "Skipping junk file");
+            continue;
+          }
+
+          // Skip thumbnail files
+          if (
+            fileNameLower.includes("thumbnail") ||
+            fileNameLower.includes("thumb")
+          ) {
+            log.debug({ fileName }, "Skipping thumbnail file");
+            continue;
+          }
+
+          const fileExt = fileName.split(".").pop()?.toLowerCase() || "";
+
+          // Only process files with valid extensions
+          if (!validExtensions.includes(fileExt)) {
+            log.debug(
+              { fileName, fileExt },
+              "Skipping file with invalid extension"
+            );
+            continue;
+          }
+
+          const fileBuffer = entry.getData();
+          const fileSize = entry.header.size;
+
+          // Extract folder name and base filename
+          const pathParts = fileName.split("/");
+          const folderName =
+            pathParts.length > 1 ? pathParts[pathParts.length - 2] : "";
+          const baseFileName = pathParts[pathParts.length - 1] || fileName;
+
+          // Determine MIME type and asset type
+          let mimeType = "application/octet-stream";
+          let assetType: "VIDEO" | "PDF" | "NOTE" | "OTHER" = "OTHER";
+
+          if (["mp4", "avi", "mov", "wmv", "webm"].includes(fileExt)) {
+            mimeType = `video/${fileExt}`;
+            assetType = "VIDEO";
+          } else if (fileExt === "pdf") {
+            mimeType = "application/pdf";
+            assetType = "PDF";
+          } else if (["doc", "docx", "txt", "md"].includes(fileExt)) {
+            if (fileExt === "txt") {
+              mimeType = "text/plain";
+            } else if (fileExt === "md") {
+              mimeType = "text/markdown";
+            } else {
+              mimeType =
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+            }
+            assetType = "NOTE";
+          }
+
+          // Upload to S3
+          const cleanFileName = `${Date.now()}-${baseFileName}`;
+          const result = await storageService.uploadFile({
+            file: fileBuffer,
+            fileName: `courses/${courseId}/${cleanFileName}`,
+            mimeType,
+          });
+
+          // Store mapping for manifest update
+          uploadedAssets.set(baseFileName, result.url);
+
+          // Insert into course_assets table
+          try {
+            await courseRepository.createAsset({
+              courseId,
+              assetType,
+              fileName: baseFileName,
+              fileSize,
+              storagePath: result.url,
+              mimeType,
+              metadata: {
+                originalPath: fileName,
+                folderName,
+                uploadedAt: new Date().toISOString(),
+              },
+            });
+
+            log.info(
+              {
+                sessionId,
+                courseId,
+                fileName: baseFileName,
+                folderName,
+                url: result.url,
+                assetType,
+              },
+              "Uploaded asset to S3 and inserted into database"
+            );
+          } catch (dbError) {
+            log.error(
+              { err: dbError, sessionId, courseId, fileName: baseFileName },
+              "Failed to insert asset into database, but S3 upload succeeded"
+            );
+          }
+        }
+
+        log.info(
+          { sessionId, courseId, uploadedCount: uploadedAssets.size },
+          "All assets uploaded successfully"
+        );
+
+        // STEP 3: Build manifest with S3 URLs
         const manifest = {
           modules: session.analysis.sections.map(
             (section: any, index: number) => ({
@@ -506,46 +738,49 @@ User message: ${userMessage}`;
                     type = "NOTE";
                   }
 
+                  const baseFileName = file.split("/").pop() || file;
+                  const s3Url = uploadedAssets.get(baseFileName);
+
                   return {
                     id: `lesson-${index + 1}-${lessonIndex + 1}`,
-                    title: file.split("/").pop() || file,
+                    title: baseFileName,
                     description: "",
                     order: lessonIndex + 1,
                     type,
+                    videoUrl: s3Url || "", // Add S3 URL here
                   };
                 }
               ),
             })
           ),
           totalDuration: 0,
-          totalAssets: session.files.length,
+          totalAssets: uploadedAssets.size,
         };
 
         log.info(
           {
             sessionId,
+            courseId,
             moduleCount: manifest.modules.length,
             totalLessons: manifest.modules.reduce(
               (sum: number, m: any) => sum + m.lessons.length,
               0
             ),
           },
-          "Built course manifest"
+          "Built course manifest with S3 URLs"
         );
 
-        // Return the manifest and metadata for frontend to create the course
-        return sendSuccess(res, {
+        // STEP 4: Update course with manifest
+        await courseRepository.update(courseId, {
           manifest,
-          metadata: {
-            name: courseName,
-            description: courseDescription,
-            category:
-              courseCategory ||
-              session.analysis.metadata?.suggestedCategory ||
-              "Other",
-            priceAmount: priceInCents,
-            thumbnailUrl: session.thumbnailUrl,
-          },
+        });
+
+        log.info({ sessionId, courseId }, "Course updated with manifest");
+
+        // Return course ID and shareable link
+        return sendSuccess(res, {
+          courseId,
+          shareableLink: `/courses/${courseId}`,
         });
       } catch (error) {
         log.error(
@@ -595,20 +830,80 @@ User message: ${userMessage}`;
         // Extract ZIP and upload each file to S3
         const zip = new AdmZip(session.fileBuffer);
         const zipEntries = zip.getEntries();
-        const uploadedAssets: Array<{ fileName: string; url: string }> = [];
+        const uploadedAssets: Array<{
+          fileName: string;
+          url: string;
+          folderName?: string;
+        }> = [];
+
+        // Filter out junk files and only process valid course assets
+        const validExtensions = [
+          "mp4",
+          "avi",
+          "mov",
+          "wmv",
+          "webm",
+          "pdf",
+          "doc",
+          "docx",
+          "txt",
+          "md",
+        ];
+        const junkFiles = [
+          ".ds_store",
+          "thumbs.db",
+          "__macosx",
+          ".git",
+          ".gitignore",
+          "desktop.ini",
+        ];
 
         for (const entry of zipEntries) {
           if (entry.isDirectory) continue;
 
           const fileName = entry.entryName;
+          const fileNameLower = fileName.toLowerCase();
+
+          // Skip junk files
+          const isJunk = junkFiles.some((junk) => fileNameLower.includes(junk));
+          if (isJunk) {
+            log.debug({ fileName }, "Skipping junk file");
+            continue;
+          }
+
+          // Skip thumbnail files
+          if (
+            fileNameLower.includes("thumbnail") ||
+            fileNameLower.includes("thumb")
+          ) {
+            log.debug({ fileName }, "Skipping thumbnail file");
+            continue;
+          }
+
+          const fileExt = fileName.split(".").pop()?.toLowerCase() || "";
+
+          // Only process files with valid extensions
+          if (!validExtensions.includes(fileExt)) {
+            log.debug(
+              { fileName, fileExt },
+              "Skipping file with invalid extension"
+            );
+            continue;
+          }
+
           const fileBuffer = entry.getData();
           const fileSize = entry.header.size;
 
+          // Extract folder name (module/section name)
+          const pathParts = fileName.split("/");
+          const folderName =
+            pathParts.length > 1 ? pathParts[pathParts.length - 2] : "";
+          const baseFileName = pathParts[pathParts.length - 1] || fileName;
+
           // Determine MIME type and asset type based on file extension
-          const fileExt = fileName.split(".").pop()?.toLowerCase() || "";
           let mimeType = "application/octet-stream";
           let assetType: "VIDEO" | "PDF" | "NOTE" | "OTHER" = "OTHER";
-          
+
           if (["mp4", "avi", "mov", "wmv", "webm"].includes(fileExt)) {
             mimeType = `video/${fileExt}`;
             assetType = "VIDEO";
@@ -621,21 +916,24 @@ User message: ${userMessage}`;
             } else if (fileExt === "md") {
               mimeType = "text/markdown";
             } else {
-              mimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+              mimeType =
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
             }
             assetType = "NOTE";
           }
 
-          // Upload to S3
+          // Upload to S3 with clean path
+          const cleanFileName = `${Date.now()}-${baseFileName}`;
           const result = await storageService.uploadFile({
             file: fileBuffer,
-            fileName: `courses/${courseId}/${fileName}`,
+            fileName: `courses/${courseId}/${cleanFileName}`,
             mimeType,
           });
 
           uploadedAssets.push({
-            fileName,
+            fileName: baseFileName,
             url: result.url,
+            folderName,
           });
 
           // Insert into course_assets table
@@ -644,30 +942,38 @@ User message: ${userMessage}`;
               await courseRepository.createAsset({
                 courseId,
                 assetType,
-                fileName: fileName.split("/").pop() || fileName,
+                fileName: baseFileName,
                 fileSize,
                 storagePath: result.url,
                 mimeType,
                 metadata: {
                   originalPath: fileName,
+                  folderName,
                   uploadedAt: new Date().toISOString(),
                 },
               });
-              
+
               log.info(
-                { sessionId, courseId, fileName, url: result.url, assetType },
+                {
+                  sessionId,
+                  courseId,
+                  fileName: baseFileName,
+                  folderName,
+                  url: result.url,
+                  assetType,
+                },
                 "Uploaded asset to S3 and inserted into database"
               );
             } catch (dbError) {
               log.error(
-                { err: dbError, sessionId, courseId, fileName },
+                { err: dbError, sessionId, courseId, fileName: baseFileName },
                 "Failed to insert asset into database, but S3 upload succeeded"
               );
               // Continue even if database insert fails - S3 upload succeeded
             }
           } else {
             log.info(
-              { sessionId, courseId, fileName, url: result.url },
+              { sessionId, courseId, fileName: baseFileName, url: result.url },
               "Uploaded asset to S3 (database insert skipped - no repository)"
             );
           }

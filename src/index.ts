@@ -199,6 +199,7 @@ const startServer = async (): Promise<void> => {
       authenticate,
       chatRepository,
       storageService: s3Service,
+      courseRepository,
       queueService,
     });
 
