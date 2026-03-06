@@ -250,11 +250,52 @@ export const createCourseRoutes = ({
           });
         }
 
-        // Get assets
-        const assets = await courseRepository.findAssets(courseId);
+        // Get assets from course_assets table
+        let assets = await courseRepository.findAssets(courseId);
+
+        // Fallback: If no assets in course_assets table, extract from manifest
+        if (assets.length === 0 && course.manifest) {
+          log.info(
+            { userId, courseId },
+            "No assets in course_assets table, extracting from manifest"
+          );
+
+          const manifestAssets: any[] = [];
+          const manifest = course.manifest as any;
+
+          // Extract videos from manifest modules
+          if (manifest.modules && Array.isArray(manifest.modules)) {
+            for (const module of manifest.modules) {
+              if (module.lessons && Array.isArray(module.lessons)) {
+                for (const lesson of module.lessons) {
+                  if (lesson.videoUrl) {
+                    manifestAssets.push({
+                      id: lesson.id || `video-${lesson.title}`,
+                      courseId: courseId,
+                      assetType: "VIDEO",
+                      fileName: lesson.videoUrl.split("/").pop() || lesson.title,
+                      fileSize: 0, // Unknown from manifest
+                      storagePath: lesson.videoUrl,
+                      mimeType: "video/mp4",
+                      duration: lesson.duration || undefined,
+                      metadata: {
+                        lessonId: lesson.id,
+                        lessonTitle: lesson.title,
+                        moduleTitle: module.title,
+                      },
+                      createdAt: course.createdAt,
+                    });
+                  }
+                }
+              }
+            }
+          }
+
+          assets = manifestAssets;
+        }
 
         log.info(
-          { userId, courseId, assetCount: assets.length, isInstructor },
+          { userId, courseId, assetCount: assets.length, isInstructor, fromManifest: assets.length > 0 && !course.manifest },
           "User accessed course assets"
         );
 
