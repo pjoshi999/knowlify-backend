@@ -151,7 +151,11 @@ const startServer = async (): Promise<void> => {
     const requireRole = (role: string): RequestHandler =>
       createRoleMiddleware(role as "INSTRUCTOR" | "STUDENT" | "ADMIN");
 
-    const authRoutes = createAuthRoutes(userRepository, authService);
+    const authRoutes = createAuthRoutes(
+      userRepository,
+      authService,
+      authenticate
+    );
     const courseRoutes = createCourseRoutes({
       courseRepository,
       cache: cacheService,

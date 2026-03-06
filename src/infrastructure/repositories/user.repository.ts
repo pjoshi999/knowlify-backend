@@ -41,6 +41,11 @@ export const createUserRepository = (): UserRepositoryPort => {
       const values: unknown[] = [];
       let paramIndex = 1;
 
+      if (input.role !== undefined) {
+        fields.push(`role = $${paramIndex++}`);
+        values.push(input.role);
+      }
+
       if (input.name !== undefined) {
         fields.push(`name = $${paramIndex++}`);
         values.push(input.name);

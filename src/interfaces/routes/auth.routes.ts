@@ -1,4 +1,10 @@
-import { Router, Request, Response, NextFunction } from "express";
+import {
+  Router,
+  Request,
+  Response,
+  NextFunction,
+  RequestHandler,
+} from "express";
 
 import {
   createRegisterUseCase,
@@ -24,7 +30,8 @@ import { config } from "../../shared/config.js";
 
 export const createAuthRoutes = (
   userRepository: UserRepositoryPort,
-  authService: AuthPort
+  authService: AuthPort,
+  authenticate: RequestHandler
 ): Router => {
   const router = Router();
 
@@ -142,6 +149,29 @@ export const createAuthRoutes = (
           provider: "github",
         } as OAuthLoginInput);
         sendSuccess(res, session);
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  // Current authenticated user profile (works for both app JWT and Supabase JWT)
+  router.get(
+    "/me",
+    authenticate,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const user = req.user!;
+        sendSuccess(res, {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          name: user.name,
+          avatarUrl: user.avatarUrl,
+          bio: user.bio,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+        });
       } catch (error) {
         next(error);
       }

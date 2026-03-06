@@ -24,6 +24,7 @@ export interface CreateUserInput {
 }
 
 export interface UpdateUserInput {
+  role?: UserRole;
   name?: string;
   avatarUrl?: string;
   bio?: string;
