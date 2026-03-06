@@ -161,6 +161,7 @@ const startServer = async (): Promise<void> => {
       cache: cacheService,
       authenticate,
       authorizeInstructor,
+      enrollmentRepository,
     });
     const enrollmentRoutes = createEnrollmentRoutes({
       enrollmentRepository,

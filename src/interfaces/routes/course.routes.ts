@@ -33,6 +33,7 @@ interface CourseRoutesConfig {
   cache: CachePort;
   authenticate: RequestHandler;
   authorizeInstructor: RequestHandler;
+  enrollmentRepository?: any; // Add enrollment repository
 }
 
 export const createCourseRoutes = ({
@@ -40,6 +41,7 @@ export const createCourseRoutes = ({
   cache,
   authenticate,
   authorizeInstructor,
+  enrollmentRepository,
 }: CourseRoutesConfig): Router => {
   const router = Router();
 
@@ -133,6 +135,75 @@ export const createCourseRoutes = ({
     }
   );
 
+  // Check if user has access to course (enrolled or instructor)
+  router.get(
+    "/:id/access",
+    authenticate,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const courseId = req.params["id"] as string;
+        const userId = req.user!.id;
+
+        // Check if course exists
+        const course = await courseRepository.findById(courseId);
+        if (!course) {
+          return res.status(404).json({
+            success: false,
+            error: "NOT_FOUND",
+            message: "Course not found",
+          });
+        }
+
+        // Check if user is the instructor
+        if (course.instructorId === userId) {
+          return sendSuccess(res, {
+            hasAccess: true,
+            reason: "instructor",
+            course: {
+              id: course.id,
+              name: course.name,
+              manifest: course.manifest,
+            },
+          });
+        }
+
+        // Check if user is enrolled
+        if (enrollmentRepository) {
+          const enrollment = await enrollmentRepository.findByStudentAndCourse(
+            userId,
+            courseId
+          );
+
+          if (enrollment) {
+            return sendSuccess(res, {
+              hasAccess: true,
+              reason: "enrolled",
+              enrollmentId: enrollment.id,
+              progress: enrollment.progress,
+              course: {
+                id: course.id,
+                name: course.name,
+                manifest: course.manifest,
+              },
+            });
+          }
+        }
+
+        // No access
+        return sendSuccess(res, {
+          hasAccess: false,
+          reason: "not_enrolled",
+          course: {
+            id: course.id,
+            name: course.name,
+          },
+        });
+      } catch (error) {
+        return next(error);
+      }
+    }
+  );
+
   // Get course assets (protected - requires enrollment or instructor ownership)
   router.get(
     "/:id/assets",
@@ -143,8 +214,8 @@ export const createCourseRoutes = ({
         const userId = req.user!.id;
 
         // Check if course exists
-        const courseExists = await courseRepository.exists(courseId);
-        if (!courseExists) {
+        const course = await courseRepository.findById(courseId);
+        if (!course) {
           return res.status(404).json({
             success: false,
             error: "NOT_FOUND",
@@ -152,20 +223,41 @@ export const createCourseRoutes = ({
           });
         }
 
-        // Get course to check instructor
-        const course = await courseRepository.findById(courseId);
+        // Check if user is the instructor
+        const isInstructor = course.instructorId === userId;
 
-        // Allow if user is the instructor
-        if (course?.instructorId === userId) {
-          const assets = await courseRepository.findAssets(courseId);
-          return sendSuccess(res, assets);
+        // Check if user is enrolled
+        let isEnrolled = false;
+        if (enrollmentRepository) {
+          const enrollment = await enrollmentRepository.findByStudentAndCourse(
+            userId,
+            courseId
+          );
+          isEnrolled = !!enrollment;
         }
 
-        // Check if user is enrolled (for students)
-        // Note: You'll need to inject enrollmentRepository into this route
-        // For now, we'll allow authenticated users to access assets
-        // TODO: Add proper enrollment check
+        // Deny access if not instructor and not enrolled
+        if (!isInstructor && !isEnrolled) {
+          log.warn(
+            { userId, courseId },
+            "User attempted to access course assets without enrollment"
+          );
+          return res.status(403).json({
+            success: false,
+            error: "FORBIDDEN",
+            message:
+              "You must be enrolled in this course to access its content",
+          });
+        }
+
+        // Get assets
         const assets = await courseRepository.findAssets(courseId);
+
+        log.info(
+          { userId, courseId, assetCount: assets.length, isInstructor },
+          "User accessed course assets"
+        );
+
         return sendSuccess(res, assets);
       } catch (error) {
         return next(error);
