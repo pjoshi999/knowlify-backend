@@ -60,6 +60,9 @@ interface Config {
   frontend: {
     url: string;
   };
+  oauth: {
+    redirectUris: string[];
+  };
 }
 
 const getEnv = (key: string, defaultValue?: string): string => {
@@ -149,6 +152,12 @@ export const config: Config = {
   },
   frontend: {
     url: getEnv("FRONTEND_URL", "http://localhost:5173"),
+  },
+  oauth: {
+    redirectUris: getEnv(
+      "OAUTH_REDIRECT_URIS",
+      "http://localhost:5173/auth/callback"
+    ).split(","),
   },
 };
 

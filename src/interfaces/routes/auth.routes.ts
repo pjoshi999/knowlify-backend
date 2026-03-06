@@ -20,6 +20,7 @@ import {
   PasswordResetCompletion,
 } from "../../domain/types/user.types.js";
 import { sendSuccess, sendMessage } from "../utils/response.js";
+import { config } from "../../shared/config.js";
 
 export const createAuthRoutes = (
   userRepository: UserRepositoryPort,
@@ -141,6 +142,40 @@ export const createAuthRoutes = (
           provider: "github",
         } as OAuthLoginInput);
         sendSuccess(res, session);
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  // OAuth callback endpoint for handling redirects
+  router.get(
+    "/oauth/callback",
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const { access_token, provider } = req.query;
+
+        if (!access_token || !provider) {
+          return res.redirect(
+            `${config.frontend.url}/auth/error?message=Missing OAuth parameters`
+          );
+        }
+
+        const session = await oauthLogin({
+          accessToken: access_token as string,
+          provider: provider as "google" | "github",
+        } as OAuthLoginInput);
+
+        // Redirect to frontend with tokens
+        const redirectUrl = new URL(`${config.frontend.url}/auth/callback`);
+        redirectUrl.searchParams.set("access_token", session.accessToken);
+        redirectUrl.searchParams.set("refresh_token", session.refreshToken);
+        redirectUrl.searchParams.set(
+          "expires_at",
+          session.expiresAt.toISOString()
+        );
+
+        res.redirect(redirectUrl.toString());
       } catch (error) {
         next(error);
       }
