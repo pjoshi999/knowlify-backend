@@ -94,7 +94,14 @@ export const createCourseRoutes = ({
           limit: req.query["limit"]
             ? parseInt(req.query["limit"] as string, 10)
             : 20,
-          sortBy: req.query["sortBy"] as
+          sortBy: ([
+            "createdAt",
+            "priceAmount",
+            "enrollmentCount",
+            "avgRating",
+          ].includes(req.query["sortBy"] as string)
+            ? req.query["sortBy"]
+            : "createdAt") as
             | "createdAt"
             | "priceAmount"
             | "enrollmentCount"

@@ -142,8 +142,9 @@ export const createCourseRepository = (): CourseRepositoryPort => {
         avgRating: "cs.avg_rating",
       };
 
-      const sortField = sortFieldMap[pagination.sortBy ?? "createdAt"];
-      const sortOrder = pagination.sortOrder ?? "desc";
+      const sortField =
+        sortFieldMap[pagination.sortBy ?? "createdAt"] ?? "c.created_at";
+      const sortOrder = pagination.sortOrder === "asc" ? "asc" : "desc";
 
       const offset = (pagination.page - 1) * pagination.limit;
 
