@@ -9,6 +9,17 @@ import {
 } from "../../domain/types/course.types.js";
 import { PaginationResult } from "../../domain/types/value-objects.types.js";
 
+export interface CreateCourseAssetInput {
+  courseId: string;
+  assetType: CourseAsset["assetType"];
+  fileName: string;
+  fileSize: number;
+  storagePath: string;
+  mimeType: string;
+  duration?: number;
+  metadata?: Record<string, unknown>;
+}
+
 export interface CourseRepositoryPort {
   findById: (id: string) => Promise<Course | null>;
   findBySlug: (slug: string) => Promise<Course | null>;
@@ -25,4 +36,5 @@ export interface CourseRepositoryPort {
   exists: (id: string) => Promise<boolean>;
   getStats: (id: string) => Promise<CourseWithStats | null>;
   findAssets: (courseId: string) => Promise<CourseAsset[]>;
+  createAsset: (input: CreateCourseAssetInput) => Promise<CourseAsset>;
 }

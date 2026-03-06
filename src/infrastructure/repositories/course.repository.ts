@@ -355,5 +355,55 @@ export const createCourseRepository = (): CourseRepositoryPort => {
         createdAt: row["created_at"],
       }));
     },
+
+    createAsset: async (
+      input: import("../../application/ports/course.repository.port.js").CreateCourseAssetInput
+    ): Promise<CourseAsset> => {
+      interface AssetRow {
+        id: string;
+        course_id: string;
+        asset_type: CourseAsset["assetType"];
+        file_name: string;
+        file_size: number;
+        storage_path: string;
+        mime_type: string;
+        duration?: number;
+        metadata?: Record<string, unknown>;
+        created_at: Date;
+      }
+
+      const result = await query<AssetRow>(
+        `INSERT INTO course_assets (
+           course_id, asset_type, file_name, file_size,
+           storage_path, mime_type, duration, metadata
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         RETURNING *`,
+        [
+          input.courseId,
+          input.assetType,
+          input.fileName,
+          input.fileSize,
+          input.storagePath,
+          input.mimeType,
+          input.duration ?? null,
+          input.metadata ? JSON.stringify(input.metadata) : null,
+        ]
+      );
+
+      const row = result.rows[0]!;
+      return {
+        id: row["id"],
+        courseId: row["course_id"],
+        assetType: row["asset_type"],
+        fileName: row["file_name"],
+        fileSize: Number(row["file_size"]),
+        storagePath: row["storage_path"],
+        mimeType: row["mime_type"],
+        duration: row["duration"],
+        metadata: row["metadata"],
+        createdAt: row["created_at"],
+      };
+    },
   };
 };

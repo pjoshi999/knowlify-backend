@@ -234,7 +234,7 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no extra
   router.post(
     "/sessions/:sessionId/thumbnail",
     authenticate,
-    upload.single("file"),
+    upload.single("thumbnail"), // Changed from "file" to "thumbnail"
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const sessionId = req.params["sessionId"] as string;
@@ -438,11 +438,15 @@ User message: ${userMessage}`;
         }
 
         if (!session.analysis) {
-          return res
-            .status(400)
-            .json({
-              error: "No course analysis found. Please upload files first.",
-            });
+          return res.status(400).json({
+            error: "No course analysis found. Please upload files first.",
+          });
+        }
+
+        if (!session.fileBuffer) {
+          return res.status(400).json({
+            error: "No course files found. Please upload files first.",
+          });
         }
 
         const { courseName, courseDescription, courseCategory, coursePrice } =
@@ -454,7 +458,29 @@ User message: ${userMessage}`;
             .json({ error: "Course name and description are required" });
         }
 
+        // Ensure description is at least 10 characters
+        if (courseDescription.length < 10) {
+          return res.status(400).json({
+            error: "Course description must be at least 10 characters",
+          });
+        }
+
         log.info({ sessionId, courseName }, "Finalizing course creation");
+
+        // Parse price - handle both string and number, ensure it's in cents
+        let priceInCents: number;
+        if (coursePrice) {
+          const priceNum = parseFloat(coursePrice);
+          // If price is less than 100, assume it's in dollars and convert to cents
+          priceInCents =
+            priceNum < 100 ? Math.round(priceNum * 100) : Math.round(priceNum);
+        } else if (session.analysis.metadata?.suggestedPrice) {
+          priceInCents = Math.round(
+            session.analysis.metadata.suggestedPrice * 100
+          );
+        } else {
+          priceInCents = 4999; // Default $49.99
+        }
 
         // Build manifest from analysis
         const manifest = {
@@ -495,6 +521,18 @@ User message: ${userMessage}`;
           totalAssets: session.files.length,
         };
 
+        log.info(
+          {
+            sessionId,
+            moduleCount: manifest.modules.length,
+            totalLessons: manifest.modules.reduce(
+              (sum: number, m: any) => sum + m.lessons.length,
+              0
+            ),
+          },
+          "Built course manifest"
+        );
+
         // Return the manifest and metadata for frontend to create the course
         return sendSuccess(res, {
           manifest,
@@ -505,11 +543,7 @@ User message: ${userMessage}`;
               courseCategory ||
               session.analysis.metadata?.suggestedCategory ||
               "Other",
-            priceAmount: coursePrice
-              ? Math.round(parseFloat(coursePrice) * 100)
-              : session.analysis.metadata?.suggestedPrice
-                ? Math.round(session.analysis.metadata.suggestedPrice * 100)
-                : 4999,
+            priceAmount: priceInCents,
             thumbnailUrl: session.thumbnailUrl,
           },
         });
@@ -517,6 +551,109 @@ User message: ${userMessage}`;
         log.error(
           { err: error, sessionId: req.params["sessionId"] },
           "Course finalization error"
+        );
+        return next(error);
+      }
+    }
+  );
+
+  // Upload course assets from ZIP to S3 and database
+  router.post(
+    "/sessions/:sessionId/upload-assets/:courseId",
+    authenticate,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const sessionId = req.params["sessionId"] as string;
+        const courseId = req.params["courseId"] as string;
+        const session = sessions.get(sessionId);
+
+        if (!session) {
+          return res.status(404).json({ error: "Session not found" });
+        }
+
+        if (session.userId !== req.user!.id) {
+          return res.status(403).json({ error: "Unauthorized" });
+        }
+
+        if (!session.fileBuffer) {
+          return res.status(400).json({
+            error: "No course files found. Please upload files first.",
+          });
+        }
+
+        if (!storageService) {
+          return res
+            .status(500)
+            .json({ error: "Storage service not configured" });
+        }
+
+        log.info(
+          { sessionId, courseId, fileCount: session.files.length },
+          "Starting asset upload to S3"
+        );
+
+        // Extract ZIP and upload each file to S3
+        const zip = new AdmZip(session.fileBuffer);
+        const zipEntries = zip.getEntries();
+        const uploadedAssets: Array<{ fileName: string; url: string }> = [];
+
+        for (const entry of zipEntries) {
+          if (entry.isDirectory) continue;
+
+          const fileName = entry.entryName;
+          const fileBuffer = entry.getData();
+
+          // Determine MIME type based on file extension
+          const fileExt = fileName.split(".").pop()?.toLowerCase() || "";
+          let mimeType = "application/octet-stream";
+          if (["mp4", "avi", "mov", "wmv", "webm"].includes(fileExt)) {
+            mimeType = `video/${fileExt}`;
+          } else if (fileExt === "pdf") {
+            mimeType = "application/pdf";
+          } else if (["doc", "docx"].includes(fileExt)) {
+            mimeType =
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+          } else if (fileExt === "txt") {
+            mimeType = "text/plain";
+          } else if (fileExt === "md") {
+            mimeType = "text/markdown";
+          }
+
+          // Upload to S3
+          const result = await storageService.uploadFile({
+            file: fileBuffer,
+            fileName: `courses/${courseId}/${fileName}`,
+            mimeType,
+          });
+
+          uploadedAssets.push({
+            fileName,
+            url: result.url,
+          });
+
+          log.info(
+            { sessionId, courseId, fileName, url: result.url },
+            "Uploaded asset to S3"
+          );
+        }
+
+        log.info(
+          { sessionId, courseId, uploadedCount: uploadedAssets.length },
+          "All assets uploaded successfully"
+        );
+
+        return sendSuccess(res, {
+          uploadedCount: uploadedAssets.length,
+          assets: uploadedAssets,
+        });
+      } catch (error) {
+        log.error(
+          {
+            err: error,
+            sessionId: req.params["sessionId"],
+            courseId: req.params["courseId"],
+          },
+          "Asset upload error"
         );
         return next(error);
       }

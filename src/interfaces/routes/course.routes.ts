@@ -24,6 +24,9 @@ import {
   createCacheInvalidationMiddleware,
 } from "../middleware/cache.middleware.js";
 import { sendMessage, sendSuccess } from "../utils/response.js";
+import { createModuleLogger } from "../../shared/logger.js";
+
+const log = createModuleLogger("course-routes");
 
 interface CourseRoutesConfig {
   courseRepository: CourseRepositoryPort;
@@ -186,7 +189,26 @@ export const createCourseRoutes = ({
           ...body,
           instructorId: req.user!.id,
         };
+
+        log.info(
+          {
+            name: input.name,
+            hasManifest: !!input.manifest,
+            moduleCount: input.manifest?.modules?.length || 0,
+          },
+          "Creating course"
+        );
+
         const course = await createCourse(input);
+
+        log.info(
+          {
+            courseId: course.id,
+            moduleCount: course.manifest?.modules?.length || 0,
+          },
+          "Course created successfully"
+        );
+
         sendSuccess(res, course, 201);
       } catch (error) {
         next(error);
