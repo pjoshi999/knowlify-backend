@@ -2,46 +2,62 @@ import { Payment, PaymentStatus } from "../../domain/types/payment.types.js";
 import { PaymentRepositoryPort } from "../../application/ports/payment.repository.port.js";
 import { query } from "../database/pool.js";
 
+const mapRowToPayment = (row: any): Payment => ({
+  id: row.id,
+  studentId: row.student_id,
+  courseId: row.course_id,
+  amount: row.amount,
+  currency: row.currency,
+  status: row.status,
+  stripePaymentIntentId: row.stripe_payment_intent_id,
+  stripeChargeId: row.stripe_charge_id,
+  failureReason: row.failure_reason,
+  refundReason: row.refund_reason,
+  refundedAmount: row.refunded_amount,
+  createdAt: row.created_at,
+  completedAt: row.completed_at,
+  refundedAt: row.refunded_at,
+});
+
 export const createPaymentRepository = (): PaymentRepositoryPort => {
   return {
     findById: async (id: string): Promise<Payment | null> => {
-      const result = await query<Payment>(
-        "SELECT * FROM payments WHERE id = $1",
-        [id]
-      );
-      return result.rows[0] ?? null;
+      const result = await query<any>("SELECT * FROM payments WHERE id = $1", [
+        id,
+      ]);
+      return result.rows[0] ? mapRowToPayment(result.rows[0]) : null;
     },
 
     findByStripePaymentIntent: async (
       stripePaymentIntentId: string
     ): Promise<Payment | null> => {
-      const result = await query<Payment>(
+      const result = await query<any>(
         "SELECT * FROM payments WHERE stripe_payment_intent_id = $1",
         [stripePaymentIntentId]
       );
-      return result.rows[0] ?? null;
+      return result.rows[0] ? mapRowToPayment(result.rows[0]) : null;
     },
 
     findByStudent: async (studentId: string): Promise<Payment[]> => {
-      const result = await query<Payment>(
+      const result = await query<any>(
         "SELECT * FROM payments WHERE student_id = $1 ORDER BY created_at DESC",
         [studentId]
       );
-      return result.rows;
+      return result.rows.map(mapRowToPayment);
     },
 
     findByCourse: async (courseId: string): Promise<Payment[]> => {
-      const result = await query<Payment>(
+      const result = await query<any>(
         "SELECT * FROM payments WHERE course_id = $1 ORDER BY created_at DESC",
         [courseId]
       );
-      return result.rows;
+      return result.rows.map(mapRowToPayment);
     },
 
     create: async (
       payment: Omit<Payment, "id" | "createdAt">
     ): Promise<Payment> => {
-      const result = await query<Payment>(
+      const result = await query<any>(
         `INSERT INTO payments (
            student_id, course_id, amount, currency, status,
            stripe_payment_intent_id, stripe_charge_id, failure_reason
@@ -59,7 +75,7 @@ export const createPaymentRepository = (): PaymentRepositoryPort => {
           payment.failureReason || null,
         ]
       );
-      return result.rows[0]!;
+      return mapRowToPayment(result.rows[0]!);
     },
 
     updateStatus: async (
@@ -90,12 +106,12 @@ export const createPaymentRepository = (): PaymentRepositoryPort => {
         values.push(metadata.completedAt);
       }
 
-      const result = await query<Payment>(
+      const result = await query<any>(
         `UPDATE payments SET ${fields.join(", ")} WHERE id = $1 RETURNING *`,
         values
       );
 
-      return result.rows[0]!;
+      return mapRowToPayment(result.rows[0]!);
     },
 
     recordRefund: async (
@@ -103,7 +119,7 @@ export const createPaymentRepository = (): PaymentRepositoryPort => {
       refundedAmount: number,
       refundReason: string
     ): Promise<Payment> => {
-      const result = await query<Payment>(
+      const result = await query<any>(
         `UPDATE payments 
          SET status = 'REFUNDED',
              refunded_amount = $2,
@@ -113,7 +129,7 @@ export const createPaymentRepository = (): PaymentRepositoryPort => {
          RETURNING *`,
         [id, refundedAmount, refundReason]
       );
-      return result.rows[0]!;
+      return mapRowToPayment(result.rows[0]!);
     },
   };
 };
