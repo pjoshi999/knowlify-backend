@@ -26,6 +26,7 @@ interface ChatSession {
   messages: Array<{ role: string; content: string; timestamp: Date }>;
   files: string[];
   fileBuffer?: Buffer;
+  thumbnailUrl?: string;
   analysis?: any;
   metadata?: any;
   createdAt: Date;
@@ -36,13 +37,14 @@ interface ChatRoutesConfig {
   aiService: AIPort;
   authenticate: RequestHandler;
   chatRepository?: any; // Optional for now
-  storageService?: any; // Optional for now
+  storageService?: any;
   queueService?: any; // Optional for now
 }
 
 export const createChatRoutes = ({
   aiService,
   authenticate,
+  storageService,
 }: ChatRoutesConfig): Router => {
   const router = Router();
 
@@ -228,6 +230,70 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no extra
     }
   );
 
+  // Upload thumbnail for course
+  router.post(
+    "/sessions/:sessionId/thumbnail",
+    authenticate,
+    upload.single("file"),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const sessionId = req.params["sessionId"] as string;
+        const session = sessions.get(sessionId);
+
+        if (!session) {
+          return res.status(404).json({ error: "Session not found" });
+        }
+
+        if (session.userId !== req.user!.id) {
+          return res.status(403).json({ error: "Unauthorized" });
+        }
+
+        if (!req.file) {
+          return res.status(400).json({ error: "No thumbnail uploaded" });
+        }
+
+        if (!storageService) {
+          return res
+            .status(500)
+            .json({ error: "Storage service not configured" });
+        }
+
+        log.info(
+          {
+            sessionId,
+            fileName: req.file.originalname,
+            fileSize: req.file.size,
+          },
+          "Uploading thumbnail"
+        );
+
+        // Upload thumbnail to S3
+        const result = await storageService.uploadFile({
+          file: req.file.buffer,
+          fileName: `thumbnails/${Date.now()}-${req.file.originalname}`,
+          mimeType: req.file.mimetype,
+        });
+
+        // Store thumbnail URL in session
+        session.thumbnailUrl = result.url;
+        session.updatedAt = new Date();
+
+        log.info(
+          { sessionId, thumbnailUrl: result.url },
+          "Thumbnail uploaded successfully"
+        );
+
+        return sendSuccess(res, { thumbnailUrl: result.url });
+      } catch (error) {
+        log.error(
+          { err: error, sessionId: req.params["sessionId"] },
+          "Thumbnail upload error"
+        );
+        return next(error);
+      }
+    }
+  );
+
   // Send chat message
   router.post(
     "/sessions/:sessionId/messages",
@@ -349,6 +415,109 @@ User message: ${userMessage}`;
 
         return sendSuccess(res, sessionData);
       } catch (error) {
+        return next(error);
+      }
+    }
+  );
+
+  // Finalize course creation with uploaded files
+  router.post(
+    "/sessions/:sessionId/finalize",
+    authenticate,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const sessionId = req.params["sessionId"] as string;
+        const session = sessions.get(sessionId);
+
+        if (!session) {
+          return res.status(404).json({ error: "Session not found" });
+        }
+
+        if (session.userId !== req.user!.id) {
+          return res.status(403).json({ error: "Unauthorized" });
+        }
+
+        if (!session.analysis) {
+          return res
+            .status(400)
+            .json({
+              error: "No course analysis found. Please upload files first.",
+            });
+        }
+
+        const { courseName, courseDescription, courseCategory, coursePrice } =
+          req.body;
+
+        if (!courseName || !courseDescription) {
+          return res
+            .status(400)
+            .json({ error: "Course name and description are required" });
+        }
+
+        log.info({ sessionId, courseName }, "Finalizing course creation");
+
+        // Build manifest from analysis
+        const manifest = {
+          modules: session.analysis.sections.map(
+            (section: any, index: number) => ({
+              id: `module-${index + 1}`,
+              title: section.title,
+              description: section.description || "",
+              order: section.order || index + 1,
+              lessons: section.files.map(
+                (file: string, lessonIndex: number) => {
+                  const fileExt = file.split(".").pop()?.toLowerCase();
+                  let type = "OTHER";
+                  if (
+                    ["mp4", "avi", "mov", "wmv", "webm"].includes(fileExt || "")
+                  ) {
+                    type = "VIDEO";
+                  } else if (fileExt === "pdf") {
+                    type = "PDF";
+                  } else if (
+                    ["doc", "docx", "txt", "md"].includes(fileExt || "")
+                  ) {
+                    type = "NOTE";
+                  }
+
+                  return {
+                    id: `lesson-${index + 1}-${lessonIndex + 1}`,
+                    title: file.split("/").pop() || file,
+                    description: "",
+                    order: lessonIndex + 1,
+                    type,
+                  };
+                }
+              ),
+            })
+          ),
+          totalDuration: 0,
+          totalAssets: session.files.length,
+        };
+
+        // Return the manifest and metadata for frontend to create the course
+        return sendSuccess(res, {
+          manifest,
+          metadata: {
+            name: courseName,
+            description: courseDescription,
+            category:
+              courseCategory ||
+              session.analysis.metadata?.suggestedCategory ||
+              "Other",
+            priceAmount: coursePrice
+              ? Math.round(parseFloat(coursePrice) * 100)
+              : session.analysis.metadata?.suggestedPrice
+                ? Math.round(session.analysis.metadata.suggestedPrice * 100)
+                : 4999,
+            thumbnailUrl: session.thumbnailUrl,
+          },
+        });
+      } catch (error) {
+        log.error(
+          { err: error, sessionId: req.params["sessionId"] },
+          "Course finalization error"
+        );
         return next(error);
       }
     }
