@@ -33,6 +33,17 @@ export const createHandlePaymentWebhookUseCase = (
           return; // Don't throw error for test events
         }
 
+        // Log the payment details and user ID being used for enrollment
+        log.info(
+          {
+            paymentId: payment.id,
+            studentId: payment.studentId,
+            courseId: payment.courseId,
+            paymentIntentId,
+          },
+          "Processing successful payment - will create enrollment with student_id from payment record"
+        );
+
         // Use transaction to ensure atomicity of payment update and enrollment creation
         try {
           await transaction(async (client) => {

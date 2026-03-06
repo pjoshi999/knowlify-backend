@@ -71,6 +71,17 @@ export const createPaymentRoutes = ({
           currency,
           studentId: req.user!.id,
         };
+        
+        // Log user ID being stored in payment record
+        log.info(
+          { 
+            userId: req.user!.id, 
+            courseId, 
+            userEmail: req.user!.email 
+          },
+          "Creating payment intent with authenticated user ID"
+        );
+        
         const paymentIntent = await createPaymentIntent(input);
         sendSuccess(res, paymentIntent, 201);
       } catch (error) {

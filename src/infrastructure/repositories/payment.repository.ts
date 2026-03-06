@@ -1,6 +1,9 @@
 import { Payment, PaymentStatus } from "../../domain/types/payment.types.js";
 import { PaymentRepositoryPort } from "../../application/ports/payment.repository.port.js";
 import { query } from "../database/pool.js";
+import { createModuleLogger } from "../../shared/logger.js";
+
+const log = createModuleLogger("payment-repository");
 
 const mapRowToPayment = (row: any): Payment => ({
   id: row.id,
@@ -57,6 +60,17 @@ export const createPaymentRepository = (): PaymentRepositoryPort => {
     create: async (
       payment: Omit<Payment, "id" | "createdAt">
     ): Promise<Payment> => {
+      // Log payment creation with user ID
+      log.info(
+        {
+          studentId: payment.studentId,
+          courseId: payment.courseId,
+          amount: payment.amount,
+          stripePaymentIntentId: payment.stripePaymentIntentId,
+        },
+        "Creating payment record with student_id"
+      );
+      
       const result = await query<any>(
         `INSERT INTO payments (
            student_id, course_id, amount, currency, status,
@@ -75,7 +89,18 @@ export const createPaymentRepository = (): PaymentRepositoryPort => {
           payment.failureReason || null,
         ]
       );
-      return mapRowToPayment(result.rows[0]!);
+      
+      const createdPayment = mapRowToPayment(result.rows[0]!);
+      
+      log.info(
+        {
+          paymentId: createdPayment.id,
+          studentId: createdPayment.studentId,
+        },
+        "Payment record created successfully"
+      );
+      
+      return createdPayment;
     },
 
     updateStatus: async (
