@@ -1,251 +1,355 @@
 import {
   Router,
-  type Request,
-  type Response,
-  type RequestHandler,
+  Request,
+  Response,
+  NextFunction,
+  RequestHandler,
 } from "express";
 import multer from "multer";
-import type { ChatRepository } from "../../application/ports/chat.repository.port.js";
-import type { AIPort } from "../../application/ports/ai.port.js";
-import type { StoragePort } from "../../application/ports/storage.port.js";
-import type { QueuePort } from "../../application/ports/queue.port.js";
-import { createChatSessionUseCase } from "../../application/use-cases/chat/create-chat-session.use-case.js";
-import { sendChatMessageUseCase } from "../../application/use-cases/chat/send-chat-message.use-case.js";
-import { getChatSessionUseCase } from "../../application/use-cases/chat/get-chat-session.use-case.js";
-import { uploadCourseFilesUseCase } from "../../application/use-cases/chat/upload-course-files.use-case.js";
+import AdmZip from "adm-zip";
+import { sendSuccess } from "../utils/response.js";
 import { createModuleLogger } from "../../shared/logger.js";
-import { sendError, sendSuccess } from "../utils/response.js";
+import type { AIPort } from "../../application/ports/ai.port.js";
 
-const log = createModuleLogger("chat");
+const log = createModuleLogger("chat-routes");
 
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 500 * 1024 * 1024, // 500MB max
-  },
-  fileFilter: (_req, file, cb) => {
-    if (
-      file.mimetype === "application/zip" ||
-      file.originalname.endsWith(".zip")
-    ) {
-      cb(null, true);
-    } else {
-      cb(new Error("Only ZIP files are allowed"));
-    }
+    fileSize: 100 * 1024 * 1024, // 100MB limit
   },
 });
 
-export const createChatRoutes = (deps: {
-  chatRepository: ChatRepository;
+interface ChatSession {
+  id: string;
+  userId: string;
+  messages: Array<{ role: string; content: string; timestamp: Date }>;
+  files: string[];
+  fileBuffer?: Buffer;
+  analysis?: any;
+  metadata?: any;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface ChatRoutesConfig {
   aiService: AIPort;
-  storageService: StoragePort;
-  queueService: QueuePort;
-  authMiddleware: RequestHandler;
-}): Router => {
+  authenticate: RequestHandler;
+  chatRepository?: any; // Optional for now
+  storageService?: any; // Optional for now
+  queueService?: any; // Optional for now
+}
+
+export const createChatRoutes = ({
+  aiService,
+  authenticate,
+}: ChatRoutesConfig): Router => {
   const router = Router();
 
-  // Create new chat session
+  // Store chat sessions in memory (use Redis in production)
+  const sessions = new Map<string, ChatSession>();
+
+  // Cleanup old sessions (older than 24 hours)
+  setInterval(
+    () => {
+      const now = Date.now();
+      const oneDayAgo = now - 24 * 60 * 60 * 1000;
+
+      for (const [sessionId, session] of sessions.entries()) {
+        if (session.updatedAt.getTime() < oneDayAgo) {
+          sessions.delete(sessionId);
+          log.info({ sessionId }, "Cleaned up old session");
+        }
+      }
+    },
+    60 * 60 * 1000
+  ); // Run every hour
+
+  // Create chat session
   router.post(
     "/sessions",
-    deps.authMiddleware,
-    async (req: Request, res: Response) => {
+    authenticate,
+    (req: Request, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as Request & { user: { id: string } }).user.id;
+        const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const session: ChatSession = {
+          id: sessionId,
+          userId: req.user!.id,
+          messages: [],
+          files: [],
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
 
-        const createSession = createChatSessionUseCase({
-          chatRepository: deps.chatRepository,
-        });
-
-        const session = await createSession({ userId });
-
-        sendSuccess(res, session, 201);
-      } catch (error) {
-        log.error({ err: error }, "Create chat session error");
-        sendError(res, req, {
-          statusCode: 500,
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to create chat session",
-        });
-      }
-    }
-  );
-
-  // Get chat session with messages
-  router.get(
-    "/sessions/:id",
-    deps.authMiddleware,
-    async (req: Request, res: Response) => {
-      try {
-        const userId = (req as Request & { user: { id: string } }).user.id;
-        const sessionId = String(req.params["id"]);
-
-        if (!sessionId || sessionId === "undefined") {
-          sendError(res, req, {
-            statusCode: 400,
-            code: "VALIDATION_ERROR",
-            message: "Session ID is required",
-          });
-          return;
-        }
-
-        const getSession = getChatSessionUseCase({
-          chatRepository: deps.chatRepository,
-        });
-
-        const result = await getSession({ sessionId, userId });
-
-        sendSuccess(res, result);
-      } catch (error) {
-        log.error({ err: error }, "Get chat session error");
-        sendError(res, req, {
-          statusCode: 404,
-          code: "NOT_FOUND",
-          message: "Chat session not found",
-        });
-      }
-    }
-  );
-
-  // Send message to chat session
-  router.post(
-    "/sessions/:id/messages",
-    deps.authMiddleware,
-    async (req: Request, res: Response) => {
-      try {
-        const userId = (req as Request & { user: { id: string } }).user.id;
-        const sessionId = String(req.params["id"]);
-        const { content } = req.body as { content: unknown };
-
-        if (!sessionId || sessionId === "undefined") {
-          sendError(res, req, {
-            statusCode: 400,
-            code: "VALIDATION_ERROR",
-            message: "Session ID is required",
-          });
-          return;
-        }
-
-        if (!content || typeof content !== "string") {
-          sendError(res, req, {
-            statusCode: 400,
-            code: "VALIDATION_ERROR",
-            message: "Message content is required",
-          });
-          return;
-        }
-
-        const sendMessage = sendChatMessageUseCase({
-          chatRepository: deps.chatRepository,
-          aiService: deps.aiService,
-        });
-
-        const message = await sendMessage({ sessionId, content, userId });
-
-        sendSuccess(res, message);
-      } catch (error) {
-        log.error({ err: error }, "Send chat message error");
-        sendError(res, req, {
-          statusCode: 500,
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to send message",
-        });
-      }
-    }
-  );
-
-  // Upload course files
-  router.post(
-    "/sessions/:id/upload",
-    deps.authMiddleware,
-    upload.single("file"),
-    async (req: Request, res: Response) => {
-      try {
-        const userId = (req as Request & { user: { id: string } }).user.id;
-        const sessionId = String(req.params["id"]);
-        const file = req.file;
-
-        if (!sessionId || sessionId === "undefined") {
-          sendError(res, req, {
-            statusCode: 400,
-            code: "VALIDATION_ERROR",
-            message: "Session ID is required",
-          });
-          return;
-        }
-
-        if (!file) {
-          sendError(res, req, {
-            statusCode: 400,
-            code: "VALIDATION_ERROR",
-            message: "ZIP file is required",
-          });
-          return;
-        }
-
-        const uploadFiles = uploadCourseFilesUseCase({
-          chatRepository: deps.chatRepository,
-          storageService: deps.storageService,
-          queueService: deps.queueService,
-        });
-
-        const result = await uploadFiles({
-          sessionId,
-          userId,
-          zipFile: file.buffer,
-          fileName: file.originalname,
-        });
-
-        sendSuccess(res, result);
-      } catch (error) {
-        log.error({ err: error }, "Upload course files error");
-        sendError(res, req, {
-          statusCode: 500,
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to upload course files",
-        });
-      }
-    }
-  );
-
-  // Get job status
-  router.get(
-    "/sessions/:id/job/:jobId",
-    deps.authMiddleware,
-    async (req: Request, res: Response) => {
-      try {
-        const jobId = String(req.params["jobId"]);
-
-        if (!jobId || jobId === "undefined") {
-          sendError(res, req, {
-            statusCode: 400,
-            code: "VALIDATION_ERROR",
-            message: "Job ID is required",
-          });
-          return;
-        }
-
-        const status = await deps.queueService.getJobStatus(
-          "course-processing",
-          jobId
+        sessions.set(sessionId, session);
+        log.info(
+          { sessionId, userId: req.user!.id },
+          "Created new chat session"
         );
 
-        if (!status) {
-          sendError(res, req, {
-            statusCode: 404,
-            code: "NOT_FOUND",
-            message: "Job not found",
-          });
-          return;
+        sendSuccess(res, { id: sessionId }, 201);
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  // Upload course folder (ZIP)
+  router.post(
+    "/sessions/:sessionId/upload",
+    authenticate,
+    upload.single("file"),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const sessionId = req.params["sessionId"] as string;
+        const session = sessions.get(sessionId);
+
+        if (!session) {
+          return res.status(404).json({ error: "Session not found" });
         }
 
-        sendSuccess(res, status);
-      } catch (error) {
-        log.error({ err: error }, "Get job status error");
-        sendError(res, req, {
-          statusCode: 500,
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to get job status",
+        if (session.userId !== req.user!.id) {
+          return res.status(403).json({ error: "Unauthorized" });
+        }
+
+        if (!req.file) {
+          return res.status(400).json({ error: "No file uploaded" });
+        }
+
+        log.info(
+          {
+            sessionId,
+            fileName: req.file.originalname,
+            fileSize: req.file.size,
+          },
+          "Processing uploaded file"
+        );
+
+        // Store file buffer for later use
+        session.fileBuffer = req.file.buffer;
+
+        // Extract ZIP and get file list
+        const zip = new AdmZip(req.file.buffer);
+        const zipEntries = zip.getEntries();
+        const fileList = zipEntries
+          .filter((entry) => !entry.isDirectory)
+          .map((entry) => entry.entryName);
+
+        session.files = fileList;
+        session.updatedAt = new Date();
+
+        log.info(
+          { sessionId, fileCount: fileList.length },
+          "Extracted file list from ZIP"
+        );
+
+        // Analyze structure with OpenAI
+        log.info({ sessionId }, "Starting OpenAI analysis");
+
+        const analysisPrompt = `Analyze this course folder structure and organize it into logical sections.
+
+Files in the course folder:
+${fileList.slice(0, 100).join("\n")}
+${fileList.length > 100 ? `\n... and ${fileList.length - 100} more files` : ""}
+
+Instructions:
+1. Group related files into logical course sections (e.g., "Introduction", "Week 1", "Module 2", etc.)
+2. Determine the order of sections based on file names and structure
+3. Suggest a course name, description, category, and price based on the content
+4. Be intelligent about identifying videos, notes, assignments, and exams
+
+Return ONLY a valid JSON object with this exact structure (no markdown, no extra text):
+{
+  "sections": [
+    {
+      "title": "Section name",
+      "order": 1,
+      "files": ["file1.pdf", "file2.mp4"],
+      "description": "Brief description of what this section covers"
+    }
+  ],
+  "metadata": {
+    "suggestedName": "Course Name",
+    "suggestedDescription": "Detailed course description (2-3 sentences)",
+    "suggestedCategory": "Programming|Design|Business|Marketing|Photography|Music|Health & Fitness|Language|Other",
+    "suggestedPrice": 49.99
+  }
+}`;
+
+        const analysisResponse = await aiService.chatCompletion({
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are a course structure analyzer. Analyze file lists and organize them into logical course sections. Always return valid JSON only, no markdown formatting.",
+            },
+            {
+              role: "user",
+              content: analysisPrompt,
+            },
+          ],
+          temperature: 0.7,
+          maxTokens: 2000,
         });
+
+        // Clean response - remove markdown code blocks if present
+        let cleanedResponse = analysisResponse.content.trim();
+        if (cleanedResponse.startsWith("```json")) {
+          cleanedResponse = cleanedResponse
+            .replace(/```json\n?/g, "")
+            .replace(/```\n?/g, "");
+        } else if (cleanedResponse.startsWith("```")) {
+          cleanedResponse = cleanedResponse.replace(/```\n?/g, "");
+        }
+
+        const analysis = JSON.parse(cleanedResponse);
+        session.analysis = analysis;
+
+        log.info(
+          {
+            sessionId,
+            sectionCount: analysis.sections.length,
+            suggestedName: analysis.metadata.suggestedName,
+          },
+          "Course structure analyzed"
+        );
+
+        return sendSuccess(res, {
+          fileCount: fileList.length,
+          analysis,
+        });
+      } catch (error) {
+        log.error(
+          { err: error, sessionId: req.params["sessionId"] },
+          "Upload error"
+        );
+        return next(error);
+      }
+    }
+  );
+
+  // Send chat message
+  router.post(
+    "/sessions/:sessionId/messages",
+    authenticate,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const sessionId = req.params["sessionId"] as string;
+        const session = sessions.get(sessionId);
+
+        if (!session) {
+          return res.status(404).json({ error: "Session not found" });
+        }
+
+        if (session.userId !== req.user!.id) {
+          return res.status(403).json({ error: "Unauthorized" });
+        }
+
+        const userMessage = req.body.content;
+
+        if (!userMessage || typeof userMessage !== "string") {
+          return res.status(400).json({ error: "Message content is required" });
+        }
+
+        session.messages.push({
+          role: "user",
+          content: userMessage,
+          timestamp: new Date(),
+        });
+
+        log.info(
+          { sessionId, messageLength: userMessage.length },
+          "Processing chat message"
+        );
+
+        // Get AI response with context
+        const contextPrompt = `You are a friendly and helpful course upload assistant for an online learning platform.
+
+Your role:
+- Guide instructors through uploading their course materials
+- Ask clarifying questions about their course
+- Provide encouragement and support
+- Be conversational and natural
+
+Current context:
+- Has uploaded files: ${session.files.length > 0}
+- File count: ${session.files.length}
+- Course name: ${session.metadata?.name || "Not set"}
+- Current step: ${session.analysis ? "metadata" : "upload"}
+
+Keep responses concise (2-3 sentences max) and friendly.
+
+User message: ${userMessage}`;
+
+        const aiResponseResult = await aiService.chatCompletion({
+          messages: [
+            {
+              role: "system",
+              content: contextPrompt,
+            },
+            ...session.messages.slice(-5).map((msg) => ({
+              // Include last 5 messages for context
+              role: msg.role as "user" | "assistant",
+              content: msg.content,
+            })),
+            {
+              role: "user",
+              content: userMessage,
+            },
+          ],
+          temperature: 0.7,
+          maxTokens: 500,
+        });
+
+        const aiResponse = aiResponseResult.content;
+
+        session.messages.push({
+          role: "assistant",
+          content: aiResponse,
+          timestamp: new Date(),
+        });
+
+        session.updatedAt = new Date();
+
+        log.info(
+          { sessionId, responseLength: aiResponse.length },
+          "Generated AI response"
+        );
+
+        return sendSuccess(res, { content: aiResponse });
+      } catch (error) {
+        log.error(
+          { err: error, sessionId: req.params["sessionId"] },
+          "Chat message error"
+        );
+        return next(error);
+      }
+    }
+  );
+
+  // Get session details
+  router.get(
+    "/sessions/:sessionId",
+    authenticate,
+    (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const sessionId = req.params["sessionId"] as string;
+        const session = sessions.get(sessionId);
+
+        if (!session) {
+          return res.status(404).json({ error: "Session not found" });
+        }
+
+        if (session.userId !== req.user!.id) {
+          return res.status(403).json({ error: "Unauthorized" });
+        }
+
+        // Return session without file buffer
+        const { fileBuffer, ...sessionData } = session;
+
+        return sendSuccess(res, sessionData);
+      } catch (error) {
+        return next(error);
       }
     }
   );

@@ -56,7 +56,8 @@ export const createAuthMiddleware = (
         }
         const roleFromMetadata =
           (supabaseUser as unknown as { app_metadata?: { role?: string } })
-            .app_metadata?.role || supabaseUser.user_metadata?.["role"];
+            .app_metadata?.role ||
+          (supabaseUser.user_metadata as any)?.["role"];
         const mappedRole = toRole(roleFromMetadata);
 
         const existingUser = await userRepository.findByEmail(

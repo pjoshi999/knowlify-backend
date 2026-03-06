@@ -194,11 +194,11 @@ const startServer = async (): Promise<void> => {
       cache: cacheService,
     });
     const chatRoutes = createChatRoutes({
-      chatRepository,
       aiService,
+      authenticate,
+      chatRepository,
       storageService: s3Service,
       queueService,
-      authMiddleware: authenticate,
     });
 
     const app = createServer({

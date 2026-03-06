@@ -15,6 +15,7 @@ import { generateUrlSlug } from "../../domain/logic/course.logic.js";
 interface CourseRow {
   id: string;
   instructor_id: string;
+  instructor_name?: string;
   name: string;
   description: string;
   category: string;
@@ -37,6 +38,7 @@ interface CourseRow {
 const mapToCourse = (row: CourseRow): Course => ({
   id: row["id"],
   instructorId: row["instructor_id"],
+  instructorName: row["instructor_name"],
   name: row["name"],
   description: row["description"],
   category: row["category"],
@@ -64,7 +66,10 @@ export const createCourseRepository = (): CourseRepositoryPort => {
   return {
     findById: async (id: string): Promise<Course | null> => {
       const result = await query<CourseRow>(
-        "SELECT * FROM courses WHERE id = $1 AND deleted_at IS NULL",
+        `SELECT c.*, u.name as instructor_name
+         FROM courses c
+         LEFT JOIN users u ON c.instructor_id = u.id
+         WHERE c.id = $1 AND c.deleted_at IS NULL`,
         [id]
       );
       return result.rows[0] ? mapToCourse(result.rows[0]) : null;
@@ -163,11 +168,13 @@ export const createCourseRepository = (): CourseRepositoryPort => {
       const result = await query<CourseRow>(
         `SELECT 
            c.*,
+           u.name as instructor_name,
            COALESCE(cs.enrollment_count, 0) as enrollment_count,
            COALESCE(cs.avg_rating, 0) as avg_rating,
            COALESCE(cs.review_count, 0) as review_count,
            COALESCE(cs.total_revenue, 0) as total_revenue
          FROM courses c
+         LEFT JOIN users u ON c.instructor_id = u.id
          LEFT JOIN course_statistics cs ON c.id = cs.course_id
          WHERE ${whereClause}
          ORDER BY ${sortField} ${sortOrder}
@@ -298,11 +305,13 @@ export const createCourseRepository = (): CourseRepositoryPort => {
       const result = await query<CourseRow>(
         `SELECT 
            c.*,
+           u.name as instructor_name,
            COALESCE(cs.enrollment_count, 0) as enrollment_count,
            COALESCE(cs.avg_rating, 0) as avg_rating,
            COALESCE(cs.review_count, 0) as review_count,
            COALESCE(cs.total_revenue, 0) as total_revenue
          FROM courses c
+         LEFT JOIN users u ON c.instructor_id = u.id
          LEFT JOIN course_statistics cs ON c.id = cs.course_id
          WHERE c.id = $1 AND c.deleted_at IS NULL`,
         [id]

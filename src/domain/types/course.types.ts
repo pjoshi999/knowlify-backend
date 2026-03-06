@@ -5,6 +5,7 @@ export type AssetType = "VIDEO" | "PDF" | "QUIZ" | "EXAM" | "NOTE" | "OTHER";
 export interface Course {
   id: string;
   instructorId: string;
+  instructorName?: string;
   name: string;
   description: string;
   category: string;
