@@ -39,7 +39,7 @@ export const createHandlePaymentWebhookUseCase = (
             // Update payment status
             await client.query(
               `UPDATE payments 
-               SET status = $1, stripe_charge_id = $2, completed_at = $3, updated_at = NOW()
+               SET status = $1, stripe_charge_id = $2, completed_at = $3
                WHERE id = $4`,
               ["COMPLETED", data.object.id, new Date(), payment.id]
             );
