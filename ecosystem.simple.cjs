@@ -11,9 +11,10 @@ module.exports = {
   apps: [
     {
       name: "knowlify-api",
-      script: "./dist/index.js",
-      instances: 1, // Single instance - easy to debug
-      exec_mode: "fork", // Fork mode (not cluster)
+      script: "tsx",
+      args: "src/index.ts",
+      instances: 1,
+      exec_mode: "fork",
       env: {
         NODE_ENV: "production",
         PORT: 8080,
@@ -31,7 +32,8 @@ module.exports = {
     // Video Analysis Worker - processes AI-powered video content analysis jobs
     {
       name: "knowlify-worker",
-      script: "./dist/workers/video-analysis.worker.js",
+      script: "tsx",
+      args: "src/workers/video-analysis.worker.ts",
       instances: 1,
       exec_mode: "fork",
       env: {

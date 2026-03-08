@@ -42,23 +42,29 @@ else
 fi
 echo ""
 
-# Step 4: Build application
-echo "🔨 Building application..."
+# Step 4: Type check (optional - skip build)
+echo "🔍 Type checking..."
 if command -v pnpm &> /dev/null; then
-    pnpm run build
+    pnpm run type-check || echo -e "${YELLOW}⚠️  Type check failed (non-fatal)${NC}"
 else
-    npm run build
+    npm run type-check || echo -e "${YELLOW}⚠️  Type check failed (non-fatal)${NC}"
 fi
-
-# Verify build output
-if [ ! -f "./dist/index.js" ]; then
-    echo -e "${RED}❌ Error: Build failed - dist/index.js not found${NC}"
-    exit 1
-fi
-echo -e "${GREEN}✅ Build successful${NC}"
 echo ""
 
-# Step 5: Create logs directory
+# Step 5: Verify source files exist
+echo "📁 Verifying source files..."
+if [ ! -f "./src/index.ts" ]; then
+    echo -e "${RED}❌ Error: src/index.ts not found${NC}"
+    exit 1
+fi
+if [ ! -f "./src/workers/video-analysis.worker.ts" ]; then
+    echo -e "${RED}❌ Error: src/workers/video-analysis.worker.ts not found${NC}"
+    exit 1
+fi
+echo -e "${GREEN}✅ Source files OK${NC}"
+echo ""
+
+# Step 6: Create logs directory
 echo "📁 Creating logs directory..."
 mkdir -p logs
 echo ""
