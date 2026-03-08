@@ -159,7 +159,7 @@ export const createVideoUploadRoutes = (
           uploadId,
           partNumber: 1,
           expiresIn: 86400, // 24 hours
-          edgeAcceleration: true,
+          edgeAcceleration: false, // Disabled for CORS compatibility
         });
 
         // Update session status to uploading
@@ -349,7 +349,7 @@ export const createVideoUploadRoutes = (
           uploadId: session.uploadId,
           partNumber: chunkNumber,
           expiresIn: 86400, // 24 hours
-          edgeAcceleration: true,
+          edgeAcceleration: false, // Disabled for CORS compatibility
         });
 
         sendSuccess(res, {
