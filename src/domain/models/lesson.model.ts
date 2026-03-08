@@ -1,10 +1,17 @@
 /**
  * Lesson Domain Model
- * 
+ *
  * Represents an individual learning unit within a module
  */
 
-export type AssetType = 'VIDEO' | 'PDF' | 'IMAGE' | 'QUIZ' | 'EXAM' | 'NOTE' | 'OTHER';
+export type AssetType =
+  | "VIDEO"
+  | "PDF"
+  | "IMAGE"
+  | "QUIZ"
+  | "EXAM"
+  | "NOTE"
+  | "OTHER";
 
 export interface Lesson {
   id: string;
@@ -45,7 +52,7 @@ export interface LessonWithAnalysis extends Lesson {
     topics: string[];
     learningObjectives: string[];
     keyPoints: string[];
-    difficulty?: 'beginner' | 'intermediate' | 'advanced';
+    difficulty?: "beginner" | "intermediate" | "advanced";
     analyzedAt: Date;
   };
 }

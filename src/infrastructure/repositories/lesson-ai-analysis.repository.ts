@@ -1,6 +1,6 @@
 /**
  * Lesson AI Analysis Repository
- * 
+ *
  * Database operations for AI-generated lesson analysis
  */
 
@@ -17,7 +17,7 @@ interface LessonAIAnalysisRow {
   topics: string; // JSONB stored as string
   learning_objectives: string; // JSONB stored as string
   key_points: string; // JSONB stored as string
-  difficulty?: 'beginner' | 'intermediate' | 'advanced';
+  difficulty?: "beginner" | "intermediate" | "advanced";
   transcription?: string;
   analyzed_at: Date;
   created_at: Date;
@@ -42,7 +42,9 @@ export class LessonAIAnalysisRepository {
   /**
    * Create or update AI analysis for a lesson
    */
-  async upsertAnalysis(input: CreateLessonAIAnalysisInput): Promise<LessonAIAnalysis> {
+  async upsertAnalysis(
+    input: CreateLessonAIAnalysisInput
+  ): Promise<LessonAIAnalysis> {
     const result = await query<LessonAIAnalysisRow>(
       `INSERT INTO lesson_ai_analysis 
         (lesson_id, summary, topics, learning_objectives, key_points, difficulty, transcription, analyzed_at)
@@ -80,7 +82,9 @@ export class LessonAIAnalysisRepository {
   /**
    * Get AI analysis for a lesson
    */
-  async getAnalysisByLessonId(lessonId: string): Promise<LessonAIAnalysis | null> {
+  async getAnalysisByLessonId(
+    lessonId: string
+  ): Promise<LessonAIAnalysis | null> {
     const result = await query<LessonAIAnalysisRow>(
       "SELECT * FROM lesson_ai_analysis WHERE lesson_id = $1",
       [lessonId]
@@ -93,10 +97,9 @@ export class LessonAIAnalysisRepository {
    * Delete AI analysis for a lesson
    */
   async deleteAnalysis(lessonId: string): Promise<void> {
-    await query(
-      "DELETE FROM lesson_ai_analysis WHERE lesson_id = $1",
-      [lessonId]
-    );
+    await query("DELETE FROM lesson_ai_analysis WHERE lesson_id = $1", [
+      lessonId,
+    ]);
   }
 
   /**
@@ -125,7 +128,7 @@ export class LessonAIAnalysisRepository {
       [courseId]
     );
 
-    return result.rows.map(row => row.lesson_id);
+    return result.rows.map((row) => row.lesson_id);
   }
 
   /**
@@ -150,8 +153,8 @@ export class LessonAIAnalysisRepository {
       [courseId]
     );
 
-    const totalLessons = parseInt(result.rows[0]?.total_lessons || '0');
-    const analyzedLessons = parseInt(result.rows[0]?.analyzed_lessons || '0');
+    const totalLessons = parseInt(result.rows[0]?.total_lessons || "0");
+    const analyzedLessons = parseInt(result.rows[0]?.analyzed_lessons || "0");
 
     return {
       totalLessons,
@@ -161,6 +164,7 @@ export class LessonAIAnalysisRepository {
   }
 }
 
-export const createLessonAIAnalysisRepository = (): LessonAIAnalysisRepository => {
-  return new LessonAIAnalysisRepository();
-};
+export const createLessonAIAnalysisRepository =
+  (): LessonAIAnalysisRepository => {
+    return new LessonAIAnalysisRepository();
+  };

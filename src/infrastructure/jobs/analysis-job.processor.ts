@@ -1,6 +1,6 @@
 /**
  * Analysis Job Processor
- * 
+ *
  * Background job processor for AI content analysis
  * Handles video and PDF analysis with retry logic
  */
@@ -17,7 +17,7 @@ const log = createModuleLogger("analysis-job-processor");
 export interface AnalysisJobData {
   lessonId: string;
   assetUrl: string;
-  assetType: 'VIDEO' | 'PDF';
+  assetType: "VIDEO" | "PDF";
   metadata?: {
     title: string;
     duration?: number;
@@ -32,7 +32,7 @@ export interface AnalysisJobResult {
   error?: string;
 }
 
-const QUEUE_NAME = 'ai-analysis';
+const QUEUE_NAME = "ai-analysis";
 const MAX_CONCURRENT_JOBS = 5;
 
 export class AnalysisJobProcessor {
@@ -60,12 +60,18 @@ export class AnalysisJobProcessor {
       }
     );
 
-    this.worker.on('completed', (job) => {
-      log.info({ jobId: job.id, lessonId: job.data.lessonId }, "Analysis job completed");
+    this.worker.on("completed", (job) => {
+      log.info(
+        { jobId: job.id, lessonId: job.data.lessonId },
+        "Analysis job completed"
+      );
     });
 
-    this.worker.on('failed', (job, error) => {
-      log.error({ jobId: job?.id, lessonId: job?.data.lessonId, error }, "Analysis job failed");
+    this.worker.on("failed", (job, error) => {
+      log.error(
+        { jobId: job?.id, lessonId: job?.data.lessonId, error },
+        "Analysis job failed"
+      );
     });
 
     log.info("Analysis job processor started");
@@ -74,7 +80,9 @@ export class AnalysisJobProcessor {
   /**
    * Process an analysis job
    */
-  private async processJob(job: Job<AnalysisJobData>): Promise<AnalysisJobResult> {
+  private async processJob(
+    job: Job<AnalysisJobData>
+  ): Promise<AnalysisJobResult> {
     const { lessonId, assetUrl, assetType, metadata } = job.data;
 
     log.info({ jobId: job.id, lessonId, assetType }, "Processing analysis job");
@@ -101,13 +109,13 @@ export class AnalysisJobProcessor {
 
       // Perform analysis based on asset type
       let analysis;
-      if (assetType === 'VIDEO') {
+      if (assetType === "VIDEO") {
         analysis = await this.aiAnalyzer.analyzeVideoContent(assetUrl, {
           title: lessonMetadata.title,
           hasAudio: lessonMetadata.hasAudio ?? true,
           duration: lessonMetadata.duration,
         });
-      } else if (assetType === 'PDF') {
+      } else if (assetType === "PDF") {
         analysis = await this.aiAnalyzer.analyzePDFContent(assetUrl);
       } else {
         throw new Error(`Unsupported asset type: ${assetType}`);
@@ -123,7 +131,10 @@ export class AnalysisJobProcessor {
         learningObjectives: analysis.learningObjectives,
         keyPoints: analysis.keyPoints,
         difficulty: analysis.difficulty,
-        transcription: 'transcription' in analysis ? (analysis.transcription as string | undefined) : undefined,
+        transcription:
+          "transcription" in analysis
+            ? (analysis.transcription as string | undefined)
+            : undefined,
         analyzedAt: analysis.analyzedAt,
       });
 
@@ -162,5 +173,9 @@ export const createAnalysisJobProcessor = (
   analysisRepository: LessonAIAnalysisRepository,
   lessonRepository: LessonRepository
 ): AnalysisJobProcessor => {
-  return new AnalysisJobProcessor(aiAnalyzer, analysisRepository, lessonRepository);
+  return new AnalysisJobProcessor(
+    aiAnalyzer,
+    analysisRepository,
+    lessonRepository
+  );
 };

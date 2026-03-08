@@ -82,7 +82,8 @@ export class AnalyticsService {
         byStatus,
       };
     } catch (error) {
-      logger.error({ message: "Failed to get instructor storage usage", 
+      logger.error({
+        message: "Failed to get instructor storage usage",
         error,
         instructorId,
       });
@@ -115,7 +116,8 @@ export class AnalyticsService {
         p95BytesPerSecond: parseFloat(row.p95_speed) || 0,
       };
     } catch (error) {
-      logger.error({ message: "Failed to get instructor average upload speed", 
+      logger.error({
+        message: "Failed to get instructor average upload speed",
         error,
         instructorId,
       });
@@ -149,7 +151,8 @@ export class AnalyticsService {
         rate,
       };
     } catch (error) {
-      logger.error({ message: "Failed to get instructor success rate", 
+      logger.error({
+        message: "Failed to get instructor success rate",
         error,
         instructorId,
       });
@@ -230,7 +233,8 @@ export class AnalyticsService {
 
       return recommendations;
     } catch (error) {
-      logger.error({ message: "Failed to generate upload time recommendations", 
+      logger.error({
+        message: "Failed to generate upload time recommendations",
         error,
         instructorId,
       });
@@ -302,7 +306,8 @@ export class AnalyticsService {
         breakdown,
       };
     } catch (error) {
-      logger.error({ message: "Failed to get course storage cost breakdown", 
+      logger.error({
+        message: "Failed to get course storage cost breakdown",
         error,
         courseId,
       });
@@ -341,7 +346,8 @@ export class AnalyticsService {
         estimatedWaitTime,
       };
     } catch (error) {
-      logger.error({ message: "Failed to get transcoding queue and processing time", 
+      logger.error({
+        message: "Failed to get transcoding queue and processing time",
         error,
       });
       throw error;

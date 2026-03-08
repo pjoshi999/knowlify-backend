@@ -1,5 +1,6 @@
 import { logger } from "../../shared/logger";
 import axios from "axios";
+import crypto from "crypto";
 
 interface NotificationChannel {
   type: "email" | "in-app" | "webhook";
@@ -262,7 +263,6 @@ export class NotificationService {
   private generateWebhookSignature(payload: any, secret?: string): string {
     if (!secret) return "";
 
-    const crypto = require("crypto");
     const hmac = crypto.createHmac("sha256", secret);
     hmac.update(JSON.stringify(payload));
     return hmac.digest("hex");

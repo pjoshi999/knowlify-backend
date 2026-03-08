@@ -56,7 +56,8 @@ export class ChunkManager {
         );
       });
 
-      logger.info({ message: "Recorded chunk completion", 
+      logger.info({
+        message: "Recorded chunk completion",
         sessionId: params.sessionId,
         chunkNumber: params.chunkNumber,
       });
@@ -65,7 +66,11 @@ export class ChunkManager {
         throw error;
       }
 
-      logger.error({ message: "Failed to record chunk completion",  error, params });
+      logger.error({
+        message: "Failed to record chunk completion",
+        error,
+        params,
+      });
       throw new DatabaseError("Failed to record chunk completion", {
         originalError: error instanceof Error ? error.message : String(error),
       });
@@ -94,7 +99,11 @@ export class ChunkManager {
 
       return result.rows.map((row) => row.chunkNumber);
     } catch (error) {
-      logger.error({ message: "Failed to get completed chunks",  error, sessionId });
+      logger.error({
+        message: "Failed to get completed chunks",
+        error,
+        sessionId,
+      });
       throw new DatabaseError("Failed to get completed chunks", {
         originalError: error instanceof Error ? error.message : String(error),
       });
@@ -131,13 +140,15 @@ export class ChunkManager {
         parts,
       });
 
-      logger.info({ message: "Finalized upload", 
+      logger.info({
+        message: "Finalized upload",
         sessionId: session.sessionId,
         storageKey: session.storageKey,
         totalChunks: parts.length,
       });
     } catch (error) {
-      logger.error({ message: "Failed to finalize upload", 
+      logger.error({
+        message: "Failed to finalize upload",
         error,
         sessionId: session.sessionId,
       });
@@ -213,7 +224,11 @@ export class ChunkManager {
         totalChunks,
       };
     } catch (error) {
-      logger.error({ message: "Failed to calculate progress",  error, sessionId });
+      logger.error({
+        message: "Failed to calculate progress",
+        error,
+        sessionId,
+      });
       throw new DatabaseError("Failed to calculate progress", {
         originalError: error instanceof Error ? error.message : String(error),
       });
@@ -233,7 +248,11 @@ export class ChunkManager {
       const completedChunks = parseInt(result.rows[0]?.count || "0", 10);
       return completedChunks === totalChunks;
     } catch (error) {
-      logger.error({ message: "Failed to check upload completion",  error, sessionId });
+      logger.error({
+        message: "Failed to check upload completion",
+        error,
+        sessionId,
+      });
       throw new DatabaseError("Failed to check upload completion", {
         originalError: error instanceof Error ? error.message : String(error),
       });

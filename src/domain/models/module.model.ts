@@ -1,6 +1,6 @@
 /**
  * Module Domain Model
- * 
+ *
  * Represents a logical grouping of lessons within a course
  */
 

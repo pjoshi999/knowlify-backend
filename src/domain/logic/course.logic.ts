@@ -58,8 +58,8 @@ export const generateUrlSlug = (courseName: string): string => {
 
 export const calculateCourseDuration = (course: Course): number => {
   let totalDuration = 0;
-  for (const module of course.manifest.modules) {
-    for (const lesson of module.lessons) {
+  for (const courseModule of course.manifest.modules) {
+    for (const lesson of courseModule.lessons) {
       if (lesson.duration) {
         totalDuration += lesson.duration;
       }
@@ -70,8 +70,8 @@ export const calculateCourseDuration = (course: Course): number => {
 
 export const countCourseAssets = (course: Course): number => {
   let totalAssets = 0;
-  for (const module of course.manifest.modules) {
-    totalAssets += module.lessons.length;
+  for (const courseModule of course.manifest.modules) {
+    totalAssets += courseModule.lessons.length;
   }
   return totalAssets;
 };

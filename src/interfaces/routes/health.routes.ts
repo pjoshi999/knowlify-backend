@@ -44,7 +44,7 @@ export function createHealthRoutes(deps: HealthCheckDependencies): Router {
 
       res.status(allHealthy ? 200 : 503).json(response);
     } catch (error) {
-      logger.error({ message: "Health check failed",  error });
+      logger.error({ message: "Health check failed", error });
       res.status(503).json({
         status: "unhealthy",
         timestamp: new Date().toISOString(),
@@ -65,7 +65,7 @@ export function createHealthRoutes(deps: HealthCheckDependencies): Router {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      logger.error({ message: "Readiness check failed",  error });
+      logger.error({ message: "Readiness check failed", error });
       res.status(503).json({
         status: "not ready",
         timestamp: new Date().toISOString(),

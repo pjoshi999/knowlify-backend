@@ -457,7 +457,7 @@ User message: ${userMessage}`;
         }
 
         // Return session without file buffer
-        const { fileBuffer, ...sessionData } = session;
+        const { fileBuffer: _fileBuffer, ...sessionData } = session;
 
         return sendSuccess(res, sessionData);
       } catch (error) {

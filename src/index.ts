@@ -51,6 +51,7 @@ import { createVideoUploadRoutes } from "./interfaces/routes/video-upload.routes
 import { createAnalyticsRoutes } from "./interfaces/routes/analytics.routes.js";
 import { createHealthRoutes } from "./interfaces/routes/health.routes.js";
 import { JobScheduler } from "./infrastructure/jobs/scheduler.js";
+import { createBullBoardDashboard } from "./infrastructure/monitoring/bull-board.js";
 
 const log = createModuleLogger("server");
 
@@ -244,7 +245,7 @@ const startServer = async (): Promise<void> => {
       courseRepository,
       authenticate,
     });
-  
+
     const instructorRoutes = createInstructorRoutes({
       courseRepository,
       cache: cacheService,
@@ -285,6 +286,24 @@ const startServer = async (): Promise<void> => {
       queueUrl: config.aws.sqsQueueUrl,
     });
 
+    // Initialize Bull Board dashboard for queue monitoring
+    let bullBoardRouter: Router | undefined;
+    try {
+      const { videoAnalysisQueue } =
+        await import("./infrastructure/queues/video-analysis.queue.js");
+      const { router } = createBullBoardDashboard({
+        basePath: "/admin/queues",
+        queues: [videoAnalysisQueue],
+      });
+      bullBoardRouter = router;
+      log.info("Bull Board dashboard initialized at /admin/queues");
+    } catch (error) {
+      log.warn(
+        { err: error },
+        "Failed to initialize Bull Board dashboard (non-fatal)"
+      );
+    }
+
     // Metrics endpoint for Prometheus
     const metricsRouter = Router();
     metricsRouter.get("/metrics", async (_req: Request, res: Response) => {
@@ -312,6 +331,7 @@ const startServer = async (): Promise<void> => {
       analyticsRoutes,
       healthRoutes,
       metricsRouter,
+      bullBoardRouter,
       isDatabaseReady,
     });
 

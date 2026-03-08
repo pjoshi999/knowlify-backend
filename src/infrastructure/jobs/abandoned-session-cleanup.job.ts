@@ -32,11 +32,12 @@ export class AbandonedSessionCleanupJob {
         await this.cleanupSession(session);
       }
 
-      logger.info({ message: "Abandoned session cleanup job completed", 
+      logger.info({
+        message: "Abandoned session cleanup job completed",
         cleanedCount: expiredSessions.length,
       });
     } catch (error) {
-      logger.error({ message: "Abandoned session cleanup job failed",  error });
+      logger.error({ message: "Abandoned session cleanup job failed", error });
       throw error;
     }
   }
@@ -64,13 +65,15 @@ export class AbandonedSessionCleanupJob {
         [session_id]
       );
 
-      logger.info({ message: "Cleaned up abandoned session", 
+      logger.info({
+        message: "Cleaned up abandoned session",
         sessionId: session_id,
         instructorId: instructor_id,
         courseId: course_id,
       });
     } catch (error) {
-      logger.error({ message: "Failed to cleanup session", 
+      logger.error({
+        message: "Failed to cleanup session",
         error,
         sessionId: session_id,
       });
@@ -89,9 +92,14 @@ export class AbandonedSessionCleanupJob {
       });
 
       await this.s3Client.send(command);
-      logger.debug({ message: "Aborted multipart upload",  storageKey, uploadId });
+      logger.debug({
+        message: "Aborted multipart upload",
+        storageKey,
+        uploadId,
+      });
     } catch (error) {
-      logger.error({ message: "Failed to abort multipart upload", 
+      logger.error({
+        message: "Failed to abort multipart upload",
         error,
         storageKey,
         uploadId,

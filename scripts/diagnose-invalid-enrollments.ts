@@ -24,7 +24,7 @@ async function diagnoseInvalidEnrollments() {
 
   try {
     console.log("\n🔍 Diagnosing Invalid Enrollments...\n");
-    console.log("=" .repeat(60));
+    console.log("=".repeat(60));
 
     // Query to find enrollments with student_id values that don't exist in users table
     const invalidEnrollmentsQuery = `
@@ -46,10 +46,14 @@ async function diagnoseInvalidEnrollments() {
     const invalidEnrollments: InvalidEnrollment[] = result.rows;
 
     console.log(`\n📊 Results:`);
-    console.log(`   Total invalid enrollments found: ${invalidEnrollments.length}\n`);
+    console.log(
+      `   Total invalid enrollments found: ${invalidEnrollments.length}\n`
+    );
 
     if (invalidEnrollments.length === 0) {
-      console.log("✅ No invalid enrollments found. All student_id values reference valid users.\n");
+      console.log(
+        "✅ No invalid enrollments found. All student_id values reference valid users.\n"
+      );
       return;
     }
 
@@ -61,7 +65,9 @@ async function diagnoseInvalidEnrollments() {
       console.log(`   Course ID: ${enrollment.course_id}`);
       console.log(`   Course Name: ${enrollment.course_name || "N/A"}`);
       console.log(`   Payment ID: ${enrollment.payment_id}`);
-      console.log(`   Enrolled At: ${new Date(enrollment.enrolled_at).toISOString()}`);
+      console.log(
+        `   Enrolled At: ${new Date(enrollment.enrolled_at).toISOString()}`
+      );
       console.log("");
     });
 
@@ -93,7 +99,7 @@ async function diagnoseInvalidEnrollments() {
 
     fs.writeFileSync(outputFile, JSON.stringify(reportData, null, 2));
 
-    console.log("=" .repeat(60));
+    console.log("=".repeat(60));
     console.log(`\n💾 Results saved to: ${outputFile}\n`);
     console.log("⚠️  Review the results before proceeding with deletion.\n");
   } catch (error) {

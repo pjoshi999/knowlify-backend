@@ -1,6 +1,6 @@
 /**
  * Upload Session V2 Repository
- * 
+ *
  * Database operations for upload sessions
  */
 
@@ -32,9 +32,13 @@ const mapToUploadSession = (row: UploadSessionRow): UploadSessionV2 => ({
   status: row.status,
   fileCount: row.file_count,
   totalSize: parseInt(row.total_size),
-  folderStructure: row.folder_structure ? JSON.parse(row.folder_structure) : undefined,
+  folderStructure: row.folder_structure
+    ? JSON.parse(row.folder_structure)
+    : undefined,
   tempStoragePaths: JSON.parse(row.temp_storage_paths),
-  suggestedStructure: row.suggested_structure ? JSON.parse(row.suggested_structure) : undefined,
+  suggestedStructure: row.suggested_structure
+    ? JSON.parse(row.suggested_structure)
+    : undefined,
   expiresAt: row.expires_at,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
@@ -44,7 +48,9 @@ export class UploadSessionV2Repository {
   /**
    * Create a new upload session
    */
-  async createSession(input: CreateUploadSessionInput): Promise<UploadSessionV2> {
+  async createSession(
+    input: CreateUploadSessionInput
+  ): Promise<UploadSessionV2> {
     const result = await query<UploadSessionRow>(
       `INSERT INTO upload_sessions_v2 
         (instructor_id, file_count, total_size, folder_structure, temp_storage_paths, expires_at)
@@ -70,7 +76,10 @@ export class UploadSessionV2Repository {
   /**
    * Update an upload session
    */
-  async updateSession(sessionId: string, updates: UpdateUploadSessionInput): Promise<UploadSessionV2> {
+  async updateSession(
+    sessionId: string,
+    updates: UpdateUploadSessionInput
+  ): Promise<UploadSessionV2> {
     const setClauses: string[] = [];
     const values: unknown[] = [];
     let paramIndex = 1;
@@ -136,7 +145,9 @@ export class UploadSessionV2Repository {
   /**
    * Get active sessions for an instructor
    */
-  async getActiveSessionsByInstructor(instructorId: string): Promise<UploadSessionV2[]> {
+  async getActiveSessionsByInstructor(
+    instructorId: string
+  ): Promise<UploadSessionV2[]> {
     const result = await query<UploadSessionRow>(
       `SELECT * FROM upload_sessions_v2
        WHERE instructor_id = $1 
@@ -164,13 +175,11 @@ export class UploadSessionV2Repository {
    * Delete session by ID
    */
   async deleteSession(sessionId: string): Promise<void> {
-    await query(
-      "DELETE FROM upload_sessions_v2 WHERE id = $1",
-      [sessionId]
-    );
+    await query("DELETE FROM upload_sessions_v2 WHERE id = $1", [sessionId]);
   }
 }
 
-export const createUploadSessionV2Repository = (): UploadSessionV2Repository => {
-  return new UploadSessionV2Repository();
-};
+export const createUploadSessionV2Repository =
+  (): UploadSessionV2Repository => {
+    return new UploadSessionV2Repository();
+  };

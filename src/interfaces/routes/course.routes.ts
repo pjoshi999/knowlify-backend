@@ -265,15 +265,19 @@ export const createCourseRoutes = ({
 
           // Extract videos from manifest modules
           if (manifest.modules && Array.isArray(manifest.modules)) {
-            for (const module of manifest.modules) {
-              if (module.lessons && Array.isArray(module.lessons)) {
-                for (const lesson of module.lessons) {
+            for (const manifestModule of manifest.modules) {
+              if (
+                manifestModule.lessons &&
+                Array.isArray(manifestModule.lessons)
+              ) {
+                for (const lesson of manifestModule.lessons) {
                   if (lesson.videoUrl) {
                     manifestAssets.push({
                       id: lesson.id || `video-${lesson.title}`,
                       courseId: courseId,
                       assetType: "VIDEO",
-                      fileName: lesson.videoUrl.split("/").pop() || lesson.title,
+                      fileName:
+                        lesson.videoUrl.split("/").pop() || lesson.title,
                       fileSize: 0, // Unknown from manifest
                       storagePath: lesson.videoUrl,
                       mimeType: "video/mp4",
@@ -281,7 +285,7 @@ export const createCourseRoutes = ({
                       metadata: {
                         lessonId: lesson.id,
                         lessonTitle: lesson.title,
-                        moduleTitle: module.title,
+                        moduleTitle: manifestModule.title,
                       },
                       createdAt: course.createdAt,
                     });
@@ -295,7 +299,13 @@ export const createCourseRoutes = ({
         }
 
         log.info(
-          { userId, courseId, assetCount: assets.length, isInstructor, fromManifest: assets.length > 0 && !course.manifest },
+          {
+            userId,
+            courseId,
+            assetCount: assets.length,
+            isInstructor,
+            fromManifest: assets.length > 0 && !course.manifest,
+          },
           "User accessed course assets"
         );
 

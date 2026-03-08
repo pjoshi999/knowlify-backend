@@ -1,6 +1,6 @@
 /**
  * Lesson Repository
- * 
+ *
  * Database operations for lessons
  * Handles CRUD operations, ordering, and AI analysis integration
  */
@@ -70,7 +70,10 @@ export class LessonRepository {
   /**
    * Update an existing lesson
    */
-  async updateLesson(lessonId: string, updates: UpdateLessonInput): Promise<Lesson> {
+  async updateLesson(
+    lessonId: string,
+    updates: UpdateLessonInput
+  ): Promise<Lesson> {
     const setClauses: string[] = [];
     const values: unknown[] = [];
     let paramIndex = 1;
@@ -130,10 +133,7 @@ export class LessonRepository {
    * Delete a lesson
    */
   async deleteLesson(lessonId: string): Promise<void> {
-    const result = await query(
-      "DELETE FROM lessons WHERE id = $1",
-      [lessonId]
-    );
+    const result = await query("DELETE FROM lessons WHERE id = $1", [lessonId]);
 
     if (result.rowCount === 0) {
       throw new Error("Lesson not found");
@@ -184,16 +184,20 @@ export class LessonRepository {
   /**
    * Get lessons with AI analysis and asset URLs
    */
-  async getLessonsWithAnalysisByModule(moduleId: string): Promise<LessonWithAnalysis[]> {
-    const result = await query<LessonRow & {
-      asset_url?: string;
-      analysis_summary?: string;
-      analysis_topics?: string;
-      analysis_objectives?: string;
-      analysis_key_points?: string;
-      analysis_difficulty?: 'beginner' | 'intermediate' | 'advanced';
-      analyzed_at?: Date;
-    }>(
+  async getLessonsWithAnalysisByModule(
+    moduleId: string
+  ): Promise<LessonWithAnalysis[]> {
+    const result = await query<
+      LessonRow & {
+        asset_url?: string;
+        analysis_summary?: string;
+        analysis_topics?: string;
+        analysis_objectives?: string;
+        analysis_key_points?: string;
+        analysis_difficulty?: "beginner" | "intermediate" | "advanced";
+        analyzed_at?: Date;
+      }
+    >(
       `SELECT 
         l.*,
         ca.file_url as asset_url,
@@ -211,7 +215,7 @@ export class LessonRepository {
       [moduleId]
     );
 
-    return result.rows.map(row => {
+    return result.rows.map((row) => {
       const lesson: LessonWithAnalysis = {
         ...mapToLesson(row),
         assetUrl: row.asset_url,
@@ -220,9 +224,9 @@ export class LessonRepository {
       if (row.analysis_summary) {
         lesson.aiAnalysis = {
           summary: row.analysis_summary,
-          topics: JSON.parse(row.analysis_topics || '[]'),
-          learningObjectives: JSON.parse(row.analysis_objectives || '[]'),
-          keyPoints: JSON.parse(row.analysis_key_points || '[]'),
+          topics: JSON.parse(row.analysis_topics || "[]"),
+          learningObjectives: JSON.parse(row.analysis_objectives || "[]"),
+          keyPoints: JSON.parse(row.analysis_key_points || "[]"),
           difficulty: row.analysis_difficulty,
           analyzedAt: row.analyzed_at!,
         };
@@ -247,16 +251,20 @@ export class LessonRepository {
   /**
    * Get a lesson with analysis by ID
    */
-  async getLessonWithAnalysisById(lessonId: string): Promise<LessonWithAnalysis | null> {
-    const result = await query<LessonRow & {
-      asset_url?: string;
-      analysis_summary?: string;
-      analysis_topics?: string;
-      analysis_objectives?: string;
-      analysis_key_points?: string;
-      analysis_difficulty?: 'beginner' | 'intermediate' | 'advanced';
-      analyzed_at?: Date;
-    }>(
+  async getLessonWithAnalysisById(
+    lessonId: string
+  ): Promise<LessonWithAnalysis | null> {
+    const result = await query<
+      LessonRow & {
+        asset_url?: string;
+        analysis_summary?: string;
+        analysis_topics?: string;
+        analysis_objectives?: string;
+        analysis_key_points?: string;
+        analysis_difficulty?: "beginner" | "intermediate" | "advanced";
+        analyzed_at?: Date;
+      }
+    >(
       `SELECT 
         l.*,
         ca.file_url as asset_url,
@@ -286,9 +294,9 @@ export class LessonRepository {
     if (row.analysis_summary) {
       lesson.aiAnalysis = {
         summary: row.analysis_summary,
-        topics: JSON.parse(row.analysis_topics || '[]'),
-        learningObjectives: JSON.parse(row.analysis_objectives || '[]'),
-        keyPoints: JSON.parse(row.analysis_key_points || '[]'),
+        topics: JSON.parse(row.analysis_topics || "[]"),
+        learningObjectives: JSON.parse(row.analysis_objectives || "[]"),
+        keyPoints: JSON.parse(row.analysis_key_points || "[]"),
         difficulty: row.analysis_difficulty,
         analyzedAt: row.analyzed_at!,
       };
@@ -325,7 +333,11 @@ export class LessonRepository {
   /**
    * Move a lesson to a different module
    */
-  async moveLessonToModule(lessonId: string, newModuleId: string, newOrder: number): Promise<Lesson> {
+  async moveLessonToModule(
+    lessonId: string,
+    newModuleId: string,
+    newOrder: number
+  ): Promise<Lesson> {
     const result = await query<LessonRow>(
       `UPDATE lessons
        SET module_id = $1, "order" = $2, updated_at = CURRENT_TIMESTAMP

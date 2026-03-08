@@ -36,8 +36,11 @@ export class OpenAIService {
 
   async chat(messages: ChatMessage[]): Promise<string> {
     try {
-      log.info({ messageCount: messages.length }, "Sending chat request to OpenAI");
-      
+      log.info(
+        { messageCount: messages.length },
+        "Sending chat request to OpenAI"
+      );
+
       const response = await this.client.chat.completions.create({
         model: "gpt-4-turbo-preview",
         messages,
@@ -47,7 +50,7 @@ export class OpenAIService {
 
       const content = response.choices[0]?.message?.content || "";
       log.info({ responseLength: content.length }, "Received OpenAI response");
-      
+
       return content;
     } catch (error) {
       log.error({ err: error }, "OpenAI chat error");
@@ -104,13 +107,15 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no extra
       // Clean response - remove markdown code blocks if present
       let cleanedResponse = response.trim();
       if (cleanedResponse.startsWith("```json")) {
-        cleanedResponse = cleanedResponse.replace(/```json\n?/g, "").replace(/```\n?/g, "");
+        cleanedResponse = cleanedResponse
+          .replace(/```json\n?/g, "")
+          .replace(/```\n?/g, "");
       } else if (cleanedResponse.startsWith("```")) {
         cleanedResponse = cleanedResponse.replace(/```\n?/g, "");
       }
 
       const analysis = JSON.parse(cleanedResponse) as CourseAnalysis;
-      
+
       log.info(
         {
           sectionCount: analysis.sections.length,

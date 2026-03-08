@@ -35,7 +35,7 @@ async function deleteInvalidEnrollments() {
 
   try {
     console.log("\n🗑️  Deleting Invalid Enrollments...\n");
-    console.log("=" .repeat(60));
+    console.log("=".repeat(60));
 
     // Wait for database to be ready
     console.log("⏳ Waiting for database connection...\n");
@@ -62,7 +62,9 @@ async function deleteInvalidEnrollments() {
     const invalidEnrollments: InvalidEnrollment[] = identifyResult.rows;
 
     console.log(`\n📊 Pre-Deletion Analysis:`);
-    console.log(`   Invalid enrollments to be deleted: ${invalidEnrollments.length}\n`);
+    console.log(
+      `   Invalid enrollments to be deleted: ${invalidEnrollments.length}\n`
+    );
 
     if (invalidEnrollments.length === 0) {
       console.log("✅ No invalid enrollments found. Nothing to delete.\n");
@@ -118,7 +120,7 @@ async function deleteInvalidEnrollments() {
     const deleteResult = await query(deleteQuery);
     const deletedCount = deleteResult.rowCount || 0;
 
-    console.log("=" .repeat(60));
+    console.log("=".repeat(60));
     console.log(`\n✅ Deletion Complete!`);
     console.log(`   Records deleted: ${deletedCount}\n`);
 
@@ -136,9 +138,13 @@ async function deleteInvalidEnrollments() {
     const remainingInvalid = parseInt(verifyResult.rows[0].remaining_invalid);
 
     if (remainingInvalid === 0) {
-      console.log("✅ Verification successful: No invalid enrollments remain.\n");
+      console.log(
+        "✅ Verification successful: No invalid enrollments remain.\n"
+      );
     } else {
-      console.log(`⚠️  Warning: ${remainingInvalid} invalid enrollments still exist.\n`);
+      console.log(
+        `⚠️  Warning: ${remainingInvalid} invalid enrollments still exist.\n`
+      );
     }
 
     // Get final statistics
@@ -159,10 +165,7 @@ async function deleteInvalidEnrollments() {
     console.log(`   Invalid enrollments: ${remainingInvalid}\n`);
 
     // Save deletion log
-    const logFile = path.join(
-      outputDir,
-      `deletion-log-${timestamp}.json`
-    );
+    const logFile = path.join(outputDir, `deletion-log-${timestamp}.json`);
 
     const logData = {
       timestamp: new Date().toISOString(),
@@ -177,7 +180,7 @@ async function deleteInvalidEnrollments() {
 
     fs.writeFileSync(logFile, JSON.stringify(logData, null, 2));
     console.log(`💾 Deletion log saved to: ${logFile}\n`);
-    console.log("=" .repeat(60));
+    console.log("=".repeat(60));
   } catch (error) {
     console.error("❌ Error during deletion:", error);
     throw error;

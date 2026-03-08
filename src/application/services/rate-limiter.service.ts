@@ -76,7 +76,11 @@ export class RateLimiter {
 
       return { allowed: true };
     } catch (error) {
-      logger.error({ message: "Failed to check upload limits",  error, instructorId });
+      logger.error({
+        message: "Failed to check upload limits",
+        error,
+        instructorId,
+      });
       // Fail open - allow upload if Redis is down
       return { allowed: true };
     }
@@ -103,7 +107,8 @@ export class RateLimiter {
       // Set expiry to prevent leaks (7 days)
       await this.redisClient.expire(concurrentKey, 7 * 24 * 60 * 60);
 
-      logger.info({ message: "Acquired upload slot", 
+      logger.info({
+        message: "Acquired upload slot",
         instructorId,
         sessionId,
         concurrentCount: count + 1,
@@ -115,7 +120,8 @@ export class RateLimiter {
         throw error;
       }
 
-      logger.error({ message: "Failed to acquire upload slot", 
+      logger.error({
+        message: "Failed to acquire upload slot",
         error,
         instructorId,
         sessionId,
@@ -132,9 +138,10 @@ export class RateLimiter {
       const concurrentKey = `upload:concurrent:${instructorId}`;
       await this.redisClient.sRem(concurrentKey, sessionId);
 
-      logger.info({ message: "Released upload slot",  instructorId, sessionId });
+      logger.info({ message: "Released upload slot", instructorId, sessionId });
     } catch (error) {
-      logger.error({ message: "Failed to release upload slot", 
+      logger.error({
+        message: "Failed to release upload slot",
         error,
         instructorId,
         sessionId,
@@ -170,7 +177,11 @@ export class RateLimiter {
         throw error;
       }
 
-      logger.error({ message: "Failed to check daily quota",  error, instructorId });
+      logger.error({
+        message: "Failed to check daily quota",
+        error,
+        instructorId,
+      });
       return true; // Fail open
     }
   }
@@ -189,9 +200,10 @@ export class RateLimiter {
       const secondsUntilMidnight = this.getSecondsUntilMidnight();
       await this.redisClient.expire(quotaKey, secondsUntilMidnight + 86400);
 
-      logger.debug({ message: "Consumed quota",  instructorId, bytesUploaded });
+      logger.debug({ message: "Consumed quota", instructorId, bytesUploaded });
     } catch (error) {
-      logger.error({ message: "Failed to consume quota", 
+      logger.error({
+        message: "Failed to consume quota",
         error,
         instructorId,
         bytesUploaded,
@@ -235,7 +247,11 @@ export class RateLimiter {
         throw error;
       }
 
-      logger.error({ message: "Failed to check API rate limit",  error, instructorId });
+      logger.error({
+        message: "Failed to check API rate limit",
+        error,
+        instructorId,
+      });
       return true; // Fail open
     }
   }
@@ -272,7 +288,8 @@ export class RateLimiter {
         throw error;
       }
 
-      logger.error({ message: "Failed to check pre-signed URL limit", 
+      logger.error({
+        message: "Failed to check pre-signed URL limit",
         error,
         instructorId,
       });
@@ -313,7 +330,11 @@ export class RateLimiter {
         apiRequestLimit: this.API_RATE_LIMIT[tier],
       };
     } catch (error) {
-      logger.error({ message: "Failed to get rate limit status",  error, instructorId });
+      logger.error({
+        message: "Failed to get rate limit status",
+        error,
+        instructorId,
+      });
       return {
         concurrentUploads: 0,
         maxConcurrentUploads: this.MAX_CONCURRENT_UPLOADS,
@@ -361,10 +382,18 @@ export class RateLimiter {
         await this.redisClient.incrBy(bucketKey, tokensToAdd);
         await this.redisClient.set(lastRefillKey, now.toString());
 
-        logger.debug({ message: "Refilled token bucket",  instructorId, tokensToAdd });
+        logger.debug({
+          message: "Refilled token bucket",
+          instructorId,
+          tokensToAdd,
+        });
       }
     } catch (error) {
-      logger.error({ message: "Failed to refill token bucket",  error, instructorId });
+      logger.error({
+        message: "Failed to refill token bucket",
+        error,
+        instructorId,
+      });
     }
   }
 }

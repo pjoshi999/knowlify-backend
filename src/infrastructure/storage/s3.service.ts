@@ -88,7 +88,7 @@ export const createS3Service = (): StoragePort => {
 
         await s3Client.send(command);
         return true;
-      } catch (error) {
+      } catch (_error) {
         return false;
       }
     },

@@ -1,6 +1,6 @@
 /**
  * AI Content Analyzer Service
- * 
+ *
  * Analyzes course content using OpenAI API
  * - Folder structure analysis
  * - Video content analysis with Whisper transcription
@@ -24,7 +24,7 @@ export interface VideoAnalysis {
   topics: string[];
   learningObjectives: string[];
   keyPoints: string[];
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  difficulty: "beginner" | "intermediate" | "advanced";
   transcription?: string;
   analyzedAt: Date;
 }
@@ -34,7 +34,7 @@ export interface PDFAnalysis {
   topics: string[];
   learningObjectives: string[];
   keyPoints: string[];
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  difficulty: "beginner" | "intermediate" | "advanced";
   analyzedAt: Date;
 }
 
@@ -64,8 +64,8 @@ export class AIContentAnalyzer {
     const detectedModules = this.detectModulePatterns(files);
 
     // Step 2: Use AI to refine structure
-    const fileList = files.map(f => f.path).join('\n');
-    const detectedPatterns = Array.from(detectedModules.keys()).join(', ');
+    const fileList = files.map((f) => f.path).join("\n");
+    const detectedPatterns = Array.from(detectedModules.keys()).join(", ");
 
     const prompt = `Analyze this course folder structure and organize it into logical modules.
 
@@ -89,7 +89,10 @@ Each lesson should have: title, type, fileName, order`;
       const response = await this.callGPT4WithRetry(prompt, 0.5);
       const suggestedStructure = JSON.parse(response) as SuggestedStructure;
 
-      log.info({ moduleCount: suggestedStructure.modules.length }, "Structure analysis complete");
+      log.info(
+        { moduleCount: suggestedStructure.modules.length },
+        "Structure analysis complete"
+      );
 
       return suggestedStructure;
     } catch (error) {
@@ -101,7 +104,10 @@ Each lesson should have: title, type, fileName, order`;
   /**
    * Analyze video content with transcription
    */
-  async analyzeVideoContent(videoUrl: string, metadata: VideoMetadata): Promise<VideoAnalysis> {
+  async analyzeVideoContent(
+    videoUrl: string,
+    metadata: VideoMetadata
+  ): Promise<VideoAnalysis> {
     log.info({ title: metadata.title }, "Analyzing video content");
 
     let transcription: string | undefined;
@@ -110,7 +116,10 @@ Each lesson should have: title, type, fileName, order`;
     if (metadata.hasAudio) {
       try {
         transcription = await this.transcribeVideo(videoUrl);
-        log.debug({ title: metadata.title, transcriptionLength: transcription.length }, "Transcription complete");
+        log.debug(
+          { title: metadata.title, transcriptionLength: transcription.length },
+          "Transcription complete"
+        );
       } catch (error) {
         log.warn({ error }, "Transcription failed, continuing without it");
       }
@@ -125,8 +134,8 @@ Each lesson should have: title, type, fileName, order`;
 5. Difficulty level (beginner/intermediate/advanced)
 
 Video title: ${metadata.title}
-Duration: ${metadata.duration || 'unknown'} minutes
-${transcription ? `Transcription: ${transcription.substring(0, 2000)}...` : 'No audio transcription available'}
+Duration: ${metadata.duration || "unknown"} minutes
+${transcription ? `Transcription: ${transcription.substring(0, 2000)}...` : "No audio transcription available"}
 
 Return as JSON with keys: summary, topics, learningObjectives, keyPoints, difficulty`;
 
@@ -195,20 +204,22 @@ Return as JSON with keys: summary, topics, learningObjectives, keyPoints, diffic
     // In production, download video segment and send to Whisper
     // For now, this is a placeholder
     log.debug({ videoUrl }, "Transcribing video");
-    
+
     // Placeholder - actual implementation would:
     // 1. Download video segment
     // 2. Extract audio
     // 3. Send to Whisper API
     // 4. Return transcription
-    
+
     return "Transcription placeholder";
   }
 
   /**
    * Detect module patterns in file paths
    */
-  private detectModulePatterns(files: FileMetadata[]): Map<string, FileMetadata[]> {
+  private detectModulePatterns(
+    files: FileMetadata[]
+  ): Map<string, FileMetadata[]> {
     const modulePatterns = [
       /module[_\s-]?(\d+)/i,
       /week[_\s-]?(\d+)/i,
@@ -220,7 +231,7 @@ Return as JSON with keys: summary, topics, learningObjectives, keyPoints, diffic
     const detectedModules = new Map<string, FileMetadata[]>();
 
     for (const file of files) {
-      let moduleKey = 'uncategorized';
+      let moduleKey = "uncategorized";
 
       // Check path for module patterns
       for (const pattern of modulePatterns) {
@@ -243,24 +254,28 @@ Return as JSON with keys: summary, topics, learningObjectives, keyPoints, diffic
   /**
    * Call GPT-4 with retry logic
    */
-  private async callGPT4WithRetry(prompt: string, temperature: number): Promise<string> {
+  private async callGPT4WithRetry(
+    prompt: string,
+    temperature: number
+  ): Promise<string> {
     let lastError: Error | undefined;
 
     for (let attempt = 1; attempt <= this.retryAttempts; attempt++) {
       try {
         const response = await this.client.chat.completions.create({
-          model: 'gpt-4-turbo-preview',
+          model: "gpt-4-turbo-preview",
           messages: [
             {
-              role: 'system',
-              content: 'You are an educational content analyzer. Analyze content and extract learning insights. Always return valid JSON.',
+              role: "system",
+              content:
+                "You are an educational content analyzer. Analyze content and extract learning insights. Always return valid JSON.",
             },
             {
-              role: 'user',
+              role: "user",
               content: prompt,
             },
           ],
-          response_format: { type: 'json_object' },
+          response_format: { type: "json_object" },
           temperature,
         });
 
@@ -276,7 +291,7 @@ Return as JSON with keys: summary, topics, learningObjectives, keyPoints, diffic
         if (attempt < this.retryAttempts) {
           const delay = this.retryDelay * Math.pow(2, attempt - 1); // Exponential backoff
           log.warn({ attempt, delay }, "Retrying OpenAI call");
-          await new Promise(resolve => setTimeout(resolve, delay));
+          await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
     }

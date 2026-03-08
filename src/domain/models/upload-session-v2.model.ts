@@ -1,15 +1,19 @@
 /**
  * Upload Session V2 Domain Model
- * 
+ *
  * Represents a temporary upload session for folder/video uploads
  */
 
-export type UploadSessionStatus = 'uploading' | 'analyzing' | 'complete' | 'failed';
+export type UploadSessionStatus =
+  | "uploading"
+  | "analyzing"
+  | "complete"
+  | "failed";
 
 export interface FolderNode {
   name: string;
   path: string;
-  type: 'file' | 'folder';
+  type: "file" | "folder";
   children?: FolderNode[];
   fileType?: string;
   size?: number;

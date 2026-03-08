@@ -249,7 +249,24 @@ export const createVideoUploadRoutes = (
           // Release upload slot
           await rateLimiter.releaseUploadSlot(session.instructorId, sessionId);
 
-          // TODO: Publish transcoding job
+          // Enqueue AI analysis job
+          try {
+            const { enqueueVideoAnalysis } =
+              await import("../../infrastructure/queues/video-analysis.queue.js");
+            await enqueueVideoAnalysis({
+              sessionId: session.sessionId,
+              videoKey: session.storageKey!,
+              instructorId: session.instructorId,
+              fileName: session.fileName,
+            });
+            logger.info({ message: "AI analysis job enqueued", sessionId });
+          } catch (error) {
+            logger.error({
+              message: "Failed to enqueue AI analysis",
+              sessionId,
+              error,
+            });
+          }
 
           logger.info({ message: "Upload completed", sessionId });
         }
@@ -457,6 +474,40 @@ export const createVideoUploadRoutes = (
 
       // Pass to global error handler
       next(error);
+    }
+  );
+
+  /**
+   * GET /api/video-uploads/:sessionId/analysis-progress
+   * Get AI analysis progress for a video
+   */
+  router.get(
+    "/:sessionId/analysis-progress",
+    authenticate,
+    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+      try {
+        const sessionId = req.params["sessionId"] as string;
+
+        const { getAnalysisProgress } =
+          await import("../../infrastructure/queues/video-analysis.queue.js");
+        const progress = await getAnalysisProgress(sessionId);
+
+        if (!progress) {
+          sendSuccess(res, {
+            progress: {
+              sessionId,
+              progress: 0,
+              status: "not_started",
+              message: "Analysis not started yet",
+            },
+          });
+          return;
+        }
+
+        sendSuccess(res, { progress });
+      } catch (error) {
+        next(error);
+      }
     }
   );
 

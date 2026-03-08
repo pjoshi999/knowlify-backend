@@ -1,6 +1,6 @@
 /**
  * Module Repository
- * 
+ *
  * Database operations for course modules
  * Handles CRUD operations, ordering, and cascade deletes
  */
@@ -55,7 +55,10 @@ export class ModuleRepository {
   /**
    * Update an existing module
    */
-  async updateModule(moduleId: string, updates: UpdateModuleInput): Promise<Module> {
+  async updateModule(
+    moduleId: string,
+    updates: UpdateModuleInput
+  ): Promise<Module> {
     const setClauses: string[] = [];
     const values: unknown[] = [];
     let paramIndex = 1;
@@ -100,10 +103,7 @@ export class ModuleRepository {
    * Delete a module (cascade deletes lessons)
    */
   async deleteModule(moduleId: string): Promise<void> {
-    const result = await query(
-      "DELETE FROM modules WHERE id = $1",
-      [moduleId]
-    );
+    const result = await query("DELETE FROM modules WHERE id = $1", [moduleId]);
 
     if (result.rowCount === 0) {
       throw new Error("Module not found");
@@ -154,16 +154,20 @@ export class ModuleRepository {
   /**
    * Get all modules for a course with lessons
    */
-  async getModulesWithLessonsByCourse(courseId: string): Promise<ModuleWithLessons[]> {
-    const result = await query<ModuleRow & {
-      lesson_id?: string;
-      lesson_title?: string;
-      lesson_description?: string;
-      lesson_type?: string;
-      lesson_order?: number;
-      lesson_duration?: number;
-      asset_url?: string;
-    }>(
+  async getModulesWithLessonsByCourse(
+    courseId: string
+  ): Promise<ModuleWithLessons[]> {
+    const result = await query<
+      ModuleRow & {
+        lesson_id?: string;
+        lesson_title?: string;
+        lesson_description?: string;
+        lesson_type?: string;
+        lesson_order?: number;
+        lesson_duration?: number;
+        asset_url?: string;
+      }
+    >(
       `SELECT 
         m.*,
         l.id as lesson_id,
@@ -192,10 +196,10 @@ export class ModuleRepository {
         });
       }
 
-      const module = modulesMap.get(row.id)!;
+      const courseModule = modulesMap.get(row.id)!;
 
       if (row.lesson_id) {
-        module.lessons.push({
+        courseModule.lessons.push({
           id: row.lesson_id,
           title: row.lesson_title!,
           description: row.lesson_description,

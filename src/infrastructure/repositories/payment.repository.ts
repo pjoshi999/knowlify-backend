@@ -70,7 +70,7 @@ export const createPaymentRepository = (): PaymentRepositoryPort => {
         },
         "Creating payment record with student_id"
       );
-      
+
       const result = await query<any>(
         `INSERT INTO payments (
            student_id, course_id, amount, currency, status,
@@ -89,9 +89,9 @@ export const createPaymentRepository = (): PaymentRepositoryPort => {
           payment.failureReason || null,
         ]
       );
-      
+
       const createdPayment = mapRowToPayment(result.rows[0]!);
-      
+
       log.info(
         {
           paymentId: createdPayment.id,
@@ -99,7 +99,7 @@ export const createPaymentRepository = (): PaymentRepositoryPort => {
         },
         "Payment record created successfully"
       );
-      
+
       return createdPayment;
     },
 

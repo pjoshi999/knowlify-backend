@@ -22,7 +22,9 @@ const waitForDatabase = async (maxWaitMs = 30000): Promise<void> => {
 
 const verifyForeignKeyConstraint = async (): Promise<void> => {
   try {
-    console.log("🔍 Verifying Foreign Key Constraint on enrollments.student_id\n");
+    console.log(
+      "🔍 Verifying Foreign Key Constraint on enrollments.student_id\n"
+    );
 
     // Initialize database connection
     const connectionString = process.env.DATABASE_URL;
@@ -39,7 +41,7 @@ const verifyForeignKeyConstraint = async (): Promise<void> => {
 
     // Step 1: Check if foreign key constraint exists
     console.log("Step 1: Checking if foreign key constraint exists...\n");
-    
+
     const constraintQuery = `
       SELECT
         tc.constraint_name,
@@ -67,46 +69,56 @@ const verifyForeignKeyConstraint = async (): Promise<void> => {
     const constraintResult = await query(constraintQuery);
 
     if (constraintResult.rows.length === 0) {
-      console.log("❌ Foreign key constraint NOT FOUND on enrollments.student_id\n");
+      console.log(
+        "❌ Foreign key constraint NOT FOUND on enrollments.student_id\n"
+      );
       console.log("The constraint needs to be added.\n");
-      
+
       // Add the constraint
       console.log("Step 2: Adding foreign key constraint...\n");
-      
+
       const addConstraintQuery = `
         ALTER TABLE enrollments
         ADD CONSTRAINT fk_enrollments_student_id
         FOREIGN KEY (student_id) REFERENCES users(id)
         ON DELETE CASCADE;
       `;
-      
+
       await query(addConstraintQuery);
       console.log("✅ Foreign key constraint added successfully!\n");
     } else {
-      console.log("✅ Foreign key constraint EXISTS on enrollments.student_id\n");
+      console.log(
+        "✅ Foreign key constraint EXISTS on enrollments.student_id\n"
+      );
       console.log("Constraint details:");
-      console.log(`  - Constraint name: ${constraintResult.rows[0].constraint_name}`);
-      console.log(`  - References: ${constraintResult.rows[0].foreign_table_name}(${constraintResult.rows[0].foreign_column_name})`);
+      console.log(
+        `  - Constraint name: ${constraintResult.rows[0].constraint_name}`
+      );
+      console.log(
+        `  - References: ${constraintResult.rows[0].foreign_table_name}(${constraintResult.rows[0].foreign_column_name})`
+      );
       console.log(`  - On delete: ${constraintResult.rows[0].delete_rule}`);
       console.log(`  - On update: ${constraintResult.rows[0].update_rule}\n`);
     }
 
     // Step 2: Test the constraint by attempting to insert invalid data
-    console.log("Step 3: Testing constraint by attempting to insert invalid data...\n");
-    
+    console.log(
+      "Step 3: Testing constraint by attempting to insert invalid data...\n"
+    );
+
     const testInvalidInsert = async (): Promise<boolean> => {
       try {
         // Generate a random UUID that doesn't exist in users table
         const invalidUserId = "00000000-0000-0000-0000-000000000000";
         const testCourseId = "00000000-0000-0000-0000-000000000001";
         const testPaymentId = "00000000-0000-0000-0000-000000000002";
-        
+
         await query(
           `INSERT INTO enrollments (student_id, course_id, payment_id) 
            VALUES ($1, $2, $3)`,
           [invalidUserId, testCourseId, testPaymentId]
         );
-        
+
         // If we get here, the constraint didn't work
         return false;
       } catch (error: any) {
@@ -119,28 +131,32 @@ const verifyForeignKeyConstraint = async (): Promise<void> => {
     };
 
     const constraintWorks = await testInvalidInsert();
-    
+
     if (constraintWorks) {
       console.log("✅ Constraint is WORKING! Invalid insert was rejected.\n");
       console.log("   Error code: 23503 (foreign_key_violation)\n");
     } else {
-      console.log("❌ Constraint is NOT WORKING! Invalid insert was allowed.\n");
+      console.log(
+        "❌ Constraint is NOT WORKING! Invalid insert was allowed.\n"
+      );
     }
 
     // Step 3: Verify no invalid data exists
     console.log("Step 4: Checking for existing invalid enrollment data...\n");
-    
+
     const invalidDataQuery = `
       SELECT e.id, e.student_id, e.course_id, e.enrolled_at
       FROM enrollments e
       LEFT JOIN users u ON e.student_id = u.id
       WHERE u.id IS NULL;
     `;
-    
+
     const invalidDataResult = await query(invalidDataQuery);
-    
+
     if (invalidDataResult.rows.length > 0) {
-      console.log(`⚠️  Found ${invalidDataResult.rows.length} enrollment(s) with invalid student_id:\n`);
+      console.log(
+        `⚠️  Found ${invalidDataResult.rows.length} enrollment(s) with invalid student_id:\n`
+      );
       invalidDataResult.rows.forEach((row: any) => {
         console.log(`   - Enrollment ID: ${row.id}`);
         console.log(`     Student ID: ${row.student_id}`);
@@ -158,7 +174,6 @@ const verifyForeignKeyConstraint = async (): Promise<void> => {
     console.log("✅ Foreign key constraint verification complete");
     console.log("✅ Database enforces referential integrity for student_id");
     console.log("✅ Future invalid data will be prevented\n");
-
   } catch (error) {
     console.error("❌ Error during verification:", error);
     throw error;

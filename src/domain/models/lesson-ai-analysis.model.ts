@@ -1,6 +1,6 @@
 /**
  * Lesson AI Analysis Domain Model
- * 
+ *
  * Represents AI-generated insights and analysis for a lesson
  */
 
@@ -11,7 +11,7 @@ export interface LessonAIAnalysis {
   topics: string[];
   learningObjectives: string[];
   keyPoints: string[];
-  difficulty?: 'beginner' | 'intermediate' | 'advanced';
+  difficulty?: "beginner" | "intermediate" | "advanced";
   transcription?: string;
   analyzedAt: Date;
   createdAt: Date;
@@ -24,7 +24,7 @@ export interface CreateLessonAIAnalysisInput {
   topics: string[];
   learningObjectives: string[];
   keyPoints: string[];
-  difficulty?: 'beginner' | 'intermediate' | 'advanced';
+  difficulty?: "beginner" | "intermediate" | "advanced";
   transcription?: string;
   analyzedAt: Date;
 }

@@ -28,6 +28,7 @@ interface ServerConfig {
   analyticsRoutes: Router;
   healthRoutes: Router;
   metricsRouter: Router;
+  bullBoardRouter?: Router; // Optional Bull Board dashboard
   isDatabaseReady: () => boolean;
 }
 
@@ -45,6 +46,7 @@ export const createServer = ({
   analyticsRoutes,
   healthRoutes,
   metricsRouter,
+  bullBoardRouter,
   isDatabaseReady,
 }: ServerConfig): Express => {
   const app = express();
@@ -138,6 +140,11 @@ export const createServer = ({
   app.use("/api/analytics", analyticsRoutes);
   app.use("/", healthRoutes);
   app.use("/", metricsRouter);
+
+  // Bull Board dashboard (admin only - add auth middleware in production)
+  if (bullBoardRouter) {
+    app.use("/admin/queues", bullBoardRouter);
+  }
 
   app.use(errorHandler);
 

@@ -1,10 +1,16 @@
 /**
  * Upload Routes
- * 
+ *
  * API endpoints for folder upload and AI-powered course creation
  */
 
-import { Router, Request, Response, NextFunction, RequestHandler } from "express";
+import {
+  Router,
+  Request,
+  Response,
+  NextFunction,
+  RequestHandler,
+} from "express";
 import multer from "multer";
 import { FolderUploadService } from "../../infrastructure/services/folder-upload.service.js";
 import { AIContentAnalyzer } from "../../infrastructure/services/ai-content-analyzer.service.js";
@@ -77,21 +83,24 @@ export const createUploadRoutes = ({
         if (!files || files.length === 0) {
           sendError(res, req, {
             statusCode: 400,
-            code: 'BAD_REQUEST',
-            message: 'No files uploaded',
+            code: "BAD_REQUEST",
+            message: "No files uploaded",
           });
           return;
         }
 
-        log.info({ instructorId, fileCount: files.length }, "Processing folder upload");
+        log.info(
+          { instructorId, fileCount: files.length },
+          "Processing folder upload"
+        );
 
         // Parse folder structure from request body if provided
-        const folderStructure = req.body.folderStructure 
+        const folderStructure = req.body.folderStructure
           ? JSON.parse(req.body.folderStructure)
           : undefined;
 
         // Convert multer files to our format
-        const uploadedFiles = files.map(file => ({
+        const uploadedFiles = files.map((file) => ({
           fieldname: file.fieldname,
           originalname: file.originalname,
           encoding: file.encoding,
@@ -107,15 +116,22 @@ export const createUploadRoutes = ({
           folderStructure,
         });
 
-        log.info({ sessionId: session.id, fileCount: files.length }, "Folder upload successful");
+        log.info(
+          { sessionId: session.id, fileCount: files.length },
+          "Folder upload successful"
+        );
 
-        sendSuccess(res, {
-          sessionId: session.id,
-          fileCount: session.fileCount,
-          totalSize: session.totalSize,
-          tempStoragePaths: session.tempStoragePaths,
-          expiresAt: session.expiresAt,
-        }, 201);
+        sendSuccess(
+          res,
+          {
+            sessionId: session.id,
+            fileCount: session.fileCount,
+            totalSize: session.totalSize,
+            tempStoragePaths: session.tempStoragePaths,
+            expiresAt: session.expiresAt,
+          },
+          201
+        );
       } catch (error) {
         log.error({ error }, "Folder upload failed");
         next(error);
@@ -138,8 +154,8 @@ export const createUploadRoutes = ({
         if (!sessionId) {
           sendError(res, req, {
             statusCode: 400,
-            code: 'BAD_REQUEST',
-            message: 'Session ID is required',
+            code: "BAD_REQUEST",
+            message: "Session ID is required",
           });
           return;
         }
@@ -151,8 +167,8 @@ export const createUploadRoutes = ({
         if (!session) {
           sendError(res, req, {
             statusCode: 404,
-            code: 'NOT_FOUND',
-            message: 'Upload session not found',
+            code: "NOT_FOUND",
+            message: "Upload session not found",
           });
           return;
         }
@@ -161,8 +177,8 @@ export const createUploadRoutes = ({
         if (new Date() > session.expiresAt) {
           sendError(res, req, {
             statusCode: 410,
-            code: 'GONE',
-            message: 'Upload session has expired',
+            code: "GONE",
+            message: "Upload session has expired",
           });
           return;
         }
@@ -171,33 +187,37 @@ export const createUploadRoutes = ({
         if (session.instructorId !== req.user!.id) {
           sendError(res, req, {
             statusCode: 403,
-            code: 'FORBIDDEN',
-            message: 'Unauthorized',
+            code: "FORBIDDEN",
+            message: "Unauthorized",
           });
           return;
         }
 
         // Build file metadata from session
         const fileMetadata = session.tempStoragePaths.map((path, index) => {
-          const fileName = path.split('/').pop() || `file-${index}`;
+          const fileName = path.split("/").pop() || `file-${index}`;
           return {
             name: fileName,
             path: path,
-            type: fileName.split('.').pop() || 'unknown',
+            type: fileName.split(".").pop() || "unknown",
             size: 0, // Size not stored in path, would need to fetch from S3
           };
         });
 
         // Analyze structure with AI
-        const suggestedStructure = await aiContentAnalyzer.analyzeStructure(fileMetadata);
+        const suggestedStructure =
+          await aiContentAnalyzer.analyzeStructure(fileMetadata);
 
         // Update session with suggested structure
         await sessionRepository.updateSession(sessionId, {
           suggestedStructure,
-          status: 'analyzing',
+          status: "analyzing",
         });
 
-        log.info({ sessionId, moduleCount: suggestedStructure.modules.length }, "Structure analysis complete");
+        log.info(
+          { sessionId, moduleCount: suggestedStructure.modules.length },
+          "Structure analysis complete"
+        );
 
         sendSuccess(res, {
           sessionId,
@@ -226,21 +246,24 @@ export const createUploadRoutes = ({
         if (!sessionId || !courseData || !structure) {
           sendError(res, req, {
             statusCode: 400,
-            code: 'BAD_REQUEST',
-            message: 'Missing required fields',
+            code: "BAD_REQUEST",
+            message: "Missing required fields",
           });
           return;
         }
 
-        log.info({ sessionId, courseName: courseData.name }, "Creating course with structure");
+        log.info(
+          { sessionId, courseName: courseData.name },
+          "Creating course with structure"
+        );
 
         // Get session
         const session = await sessionRepository.getSessionById(sessionId);
         if (!session) {
           sendError(res, req, {
             statusCode: 404,
-            code: 'NOT_FOUND',
-            message: 'Upload session not found',
+            code: "NOT_FOUND",
+            message: "Upload session not found",
           });
           return;
         }
@@ -249,8 +272,8 @@ export const createUploadRoutes = ({
         if (new Date() > session.expiresAt) {
           sendError(res, req, {
             statusCode: 410,
-            code: 'GONE',
-            message: 'Upload session has expired',
+            code: "GONE",
+            message: "Upload session has expired",
           });
           return;
         }
@@ -259,19 +282,20 @@ export const createUploadRoutes = ({
         if (session.instructorId !== instructorId) {
           sendError(res, req, {
             statusCode: 403,
-            code: 'FORBIDDEN',
-            message: 'Unauthorized',
+            code: "FORBIDDEN",
+            message: "Unauthorized",
           });
           return;
         }
 
         // Check course name uniqueness (simplified - just check by instructor)
-        const existingCourses = await courseRepository.findByInstructor(instructorId);
-        if (existingCourses.some(c => c.name === courseData.name)) {
+        const existingCourses =
+          await courseRepository.findByInstructor(instructorId);
+        if (existingCourses.some((c) => c.name === courseData.name)) {
           sendError(res, req, {
             statusCode: 409,
-            code: 'CONFLICT',
-            message: 'Course with this name already exists',
+            code: "CONFLICT",
+            message: "Course with this name already exists",
           });
           return;
         }
@@ -283,52 +307,67 @@ export const createUploadRoutes = ({
           description: courseData.description,
           category: courseData.category,
           priceAmount: courseData.priceAmount || 0,
-          priceCurrency: courseData.priceCurrency || 'USD',
+          priceCurrency: courseData.priceCurrency || "USD",
           thumbnailUrl: courseData.thumbnailUrl,
         });
 
         log.info({ courseId: course.id }, "Course created");
 
         // Create modules and lessons in transaction
-        const analysisJobs: { lessonId: string; assetUrl: string; assetType: 'VIDEO' | 'PDF'; metadata: any }[] = [];
+        const analysisJobs: {
+          lessonId: string;
+          assetUrl: string;
+          assetType: "VIDEO" | "PDF";
+          metadata: any;
+        }[] = [];
 
         for (const moduleData of structure.modules) {
           // Create module
-          const module = await moduleRepository.createModule({
+          const courseModule = await moduleRepository.createModule({
             courseId: course.id,
             title: moduleData.title,
             description: moduleData.description,
             order: moduleData.order,
           });
 
-          log.debug({ moduleId: module.id, title: module.title }, "Module created");
+          log.debug(
+            { moduleId: courseModule.id, title: courseModule.title },
+            "Module created"
+          );
 
           // Create lessons for this module
           for (const lessonData of moduleData.lessons) {
             // Find temp file path
-            const tempPath = session.tempStoragePaths.find(path => 
+            const tempPath = session.tempStoragePaths.find((path) =>
               path.includes(lessonData.fileName)
             );
 
             if (!tempPath) {
-              log.warn({ fileName: lessonData.fileName }, "File not found in temp storage");
+              log.warn(
+                { fileName: lessonData.fileName },
+                "File not found in temp storage"
+              );
               continue;
             }
 
             // Generate structured path
-            const typeFolder = lessonData.type === 'VIDEO' ? 'videos' : 
-                              lessonData.type === 'PDF' ? 'documents' : 'images';
-            const structuredPath = `courses/${course.id}/modules/${module.id}/${typeFolder}/${lessonData.fileName}`;
+            const typeFolder =
+              lessonData.type === "VIDEO"
+                ? "videos"
+                : lessonData.type === "PDF"
+                  ? "documents"
+                  : "images";
+            const structuredPath = `courses/${course.id}/modules/${courseModule.id}/${typeFolder}/${lessonData.fileName}`;
 
             // Move file to structured storage (simplified - actual implementation would use S3)
             // await folderUploadService.moveToStructuredStorage(...)
 
             // Create asset record (simplified - would need actual asset creation)
             // For now, we'll create lesson without asset and add it later
-            
+
             // Create lesson
             const lesson = await lessonRepository.createLesson({
-              moduleId: module.id,
+              moduleId: courseModule.id,
               title: lessonData.title,
               description: lessonData.description,
               type: lessonData.type,
@@ -337,14 +376,17 @@ export const createUploadRoutes = ({
               duration: lessonData.duration,
             });
 
-            log.debug({ lessonId: lesson.id, title: lesson.title }, "Lesson created");
+            log.debug(
+              { lessonId: lesson.id, title: lesson.title },
+              "Lesson created"
+            );
 
             // Enqueue AI analysis job
-            if (lessonData.type === 'VIDEO' || lessonData.type === 'PDF') {
+            if (lessonData.type === "VIDEO" || lessonData.type === "PDF") {
               analysisJobs.push({
                 lessonId: lesson.id,
                 assetUrl: structuredPath,
-                assetType: lessonData.type === 'VIDEO' ? 'VIDEO' : 'PDF',
+                assetType: lessonData.type === "VIDEO" ? "VIDEO" : "PDF",
                 metadata: {
                   title: lesson.title,
                   duration: lesson.duration,
@@ -356,26 +398,36 @@ export const createUploadRoutes = ({
         }
 
         // Enqueue all analysis jobs
-        const jobIds = await backgroundJobService.enqueueMultipleAnalyses(analysisJobs);
+        const jobIds =
+          await backgroundJobService.enqueueMultipleAnalyses(analysisJobs);
 
-        log.info({ courseId: course.id, jobCount: jobIds.length }, "Analysis jobs enqueued");
+        log.info(
+          { courseId: course.id, jobCount: jobIds.length },
+          "Analysis jobs enqueued"
+        );
 
         // Mark session as complete
-        await sessionRepository.updateSession(sessionId, { status: 'complete' });
+        await sessionRepository.updateSession(sessionId, {
+          status: "complete",
+        });
 
         // Delete temporary files (would be done in background)
         // await folderUploadService.deleteTemporaryFiles(session.tempStoragePaths);
 
-        sendSuccess(res, {
-          course: {
-            id: course.id,
-            name: course.name,
-            description: course.description,
+        sendSuccess(
+          res,
+          {
+            course: {
+              id: course.id,
+              name: course.name,
+              description: course.description,
+            },
+            moduleCount: structure.modules.length,
+            lessonCount: analysisJobs.length,
+            analysisJobIds: jobIds,
           },
-          moduleCount: structure.modules.length,
-          lessonCount: analysisJobs.length,
-          analysisJobIds: jobIds,
-        }, 201);
+          201
+        );
       } catch (error) {
         log.error({ error }, "Failed to create course with structure");
         next(error);

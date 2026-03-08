@@ -28,8 +28,8 @@ export const calculateCompletionPercentage = (
 
 export const countTotalLessons = (course: Course): number => {
   let total = 0;
-  for (const module of course.manifest.modules) {
-    total += module.lessons.length;
+  for (const courseModule of course.manifest.modules) {
+    total += courseModule.lessons.length;
   }
   return total;
 };

@@ -1,4 +1,10 @@
-import { Router, Request, Response, NextFunction, RequestHandler } from "express";
+import {
+  Router,
+  Request,
+  Response,
+  NextFunction,
+  RequestHandler,
+} from "express";
 import { ModuleRepository } from "../../infrastructure/repositories/module.repository.js";
 import { LessonRepository } from "../../infrastructure/repositories/lesson.repository.js";
 import { BackgroundJobService } from "../../infrastructure/services/background-job.service.js";
@@ -32,11 +38,12 @@ export const createModuleRoutes = ({
     "/courses/:courseId/modules",
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
-        const courseId = req.params['courseId'] as string;
+        const courseId = req.params["courseId"] as string;
 
         log.info({ courseId }, "Fetching modules for course");
 
-        const modules = await moduleRepository.getModulesWithLessonsByCourse(courseId);
+        const modules =
+          await moduleRepository.getModulesWithLessonsByCourse(courseId);
 
         sendSuccess(res, {
           modules,
@@ -58,22 +65,23 @@ export const createModuleRoutes = ({
     authorizeInstructor,
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
-        const courseId = req.params['courseId'] as string;
+        const courseId = req.params["courseId"] as string;
         const { title, description, order } = req.body;
 
         log.info({ courseId, title }, "Creating new module");
 
         // If order not provided, get next available
-        const moduleOrder = order || await moduleRepository.getNextOrderNumber(courseId);
+        const moduleOrder =
+          order || (await moduleRepository.getNextOrderNumber(courseId));
 
-        const module = await moduleRepository.createModule({
+        const newModule = await moduleRepository.createModule({
           courseId,
           title,
           description,
           order: moduleOrder,
         });
 
-        sendSuccess(res, { module }, 201);
+        sendSuccess(res, { module: newModule }, 201);
       } catch (error) {
         log.error({ error }, "Failed to create module");
         next(error);
@@ -91,18 +99,18 @@ export const createModuleRoutes = ({
     authorizeInstructor,
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
-        const moduleId = req.params['moduleId'] as string;
+        const moduleId = req.params["moduleId"] as string;
         const { title, description, order } = req.body;
 
         log.info({ moduleId }, "Updating module");
 
-        const module = await moduleRepository.updateModule(moduleId, {
+        const updatedModule = await moduleRepository.updateModule(moduleId, {
           title,
           description,
           order,
         });
 
-        sendSuccess(res, { module });
+        sendSuccess(res, { module: updatedModule });
       } catch (error) {
         log.error({ error }, "Failed to update module");
         next(error);
@@ -120,7 +128,7 @@ export const createModuleRoutes = ({
     authorizeInstructor,
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
-        const moduleId = req.params['moduleId'] as string;
+        const moduleId = req.params["moduleId"] as string;
 
         log.info({ moduleId }, "Deleting module");
 
@@ -144,10 +152,13 @@ export const createModuleRoutes = ({
     authorizeInstructor,
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
-        const courseId = req.params['courseId'] as string;
+        const courseId = req.params["courseId"] as string;
         const { moduleOrders } = req.body;
 
-        log.info({ courseId, count: moduleOrders.length }, "Reordering modules");
+        log.info(
+          { courseId, count: moduleOrders.length },
+          "Reordering modules"
+        );
 
         await moduleRepository.reorderModules(courseId, moduleOrders);
 
@@ -171,13 +182,14 @@ export const createModuleRoutes = ({
     authorizeInstructor,
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
-        const moduleId = req.params['moduleId'] as string;
+        const moduleId = req.params["moduleId"] as string;
         const { title, description, type, order, assetId, duration } = req.body;
 
         log.info({ moduleId, title }, "Creating new lesson");
 
         // If order not provided, get next available
-        const lessonOrder = order || await lessonRepository.getNextOrderNumber(moduleId);
+        const lessonOrder =
+          order || (await lessonRepository.getNextOrderNumber(moduleId));
 
         const lesson = await lessonRepository.createLesson({
           moduleId,
@@ -207,7 +219,7 @@ export const createModuleRoutes = ({
     authorizeInstructor,
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
-        const lessonId = req.params['lessonId'] as string;
+        const lessonId = req.params["lessonId"] as string;
         const { title, description, type, order, assetId, duration } = req.body;
 
         log.info({ lessonId }, "Updating lesson");
@@ -239,7 +251,7 @@ export const createModuleRoutes = ({
     authorizeInstructor,
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
-        const lessonId = req.params['lessonId'] as string;
+        const lessonId = req.params["lessonId"] as string;
 
         log.info({ lessonId }, "Deleting lesson");
 
@@ -263,10 +275,13 @@ export const createModuleRoutes = ({
     authorizeInstructor,
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
-        const moduleId = req.params['moduleId'] as string;
+        const moduleId = req.params["moduleId"] as string;
         const { lessonOrders } = req.body;
 
-        log.info({ moduleId, count: lessonOrders.length }, "Reordering lessons");
+        log.info(
+          { moduleId, count: lessonOrders.length },
+          "Reordering lessons"
+        );
 
         await lessonRepository.reorderLessons(moduleId, lessonOrders);
 
@@ -288,17 +303,18 @@ export const createModuleRoutes = ({
     "/lessons/:lessonId/analysis",
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
-        const lessonId = req.params['lessonId'] as string;
+        const lessonId = req.params["lessonId"] as string;
 
         log.info({ lessonId }, "Fetching lesson analysis");
 
-        const lesson = await lessonRepository.getLessonWithAnalysisById(lessonId);
+        const lesson =
+          await lessonRepository.getLessonWithAnalysisById(lessonId);
 
         if (!lesson) {
           sendError(res, req, {
             statusCode: 404,
-            code: 'NOT_FOUND',
-            message: 'Lesson not found',
+            code: "NOT_FOUND",
+            message: "Lesson not found",
           });
           return;
         }
@@ -327,17 +343,18 @@ export const createModuleRoutes = ({
     authorizeInstructor,
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
-        const lessonId = req.params['lessonId'] as string;
+        const lessonId = req.params["lessonId"] as string;
 
         log.info({ lessonId }, "Triggering lesson re-analysis");
 
-        const lesson = await lessonRepository.getLessonWithAnalysisById(lessonId);
+        const lesson =
+          await lessonRepository.getLessonWithAnalysisById(lessonId);
 
         if (!lesson) {
           sendError(res, req, {
             statusCode: 404,
-            code: 'NOT_FOUND',
-            message: 'Lesson not found',
+            code: "NOT_FOUND",
+            message: "Lesson not found",
           });
           return;
         }
@@ -345,8 +362,8 @@ export const createModuleRoutes = ({
         if (!lesson.assetId) {
           sendError(res, req, {
             statusCode: 400,
-            code: 'BAD_REQUEST',
-            message: 'Lesson has no associated asset',
+            code: "BAD_REQUEST",
+            message: "Lesson has no associated asset",
           });
           return;
         }
@@ -354,12 +371,12 @@ export const createModuleRoutes = ({
         // TODO: Fetch asset details to get URL and type
         // For now, we'll need to add this logic when we have the asset repository
         // const asset = await assetRepository.getAssetById(lesson.assetId);
-        
+
         // Enqueue analysis job
         const jobId = await backgroundJobService.enqueueAnalysis({
           lessonId: lesson.id,
-          assetUrl: '', // TODO: Get from asset
-          assetType: lesson.type === 'VIDEO' ? 'VIDEO' : 'PDF',
+          assetUrl: "", // TODO: Get from asset
+          assetType: lesson.type === "VIDEO" ? "VIDEO" : "PDF",
           metadata: {
             title: lesson.title,
             duration: lesson.duration,

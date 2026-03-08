@@ -2,12 +2,12 @@
 
 /**
  * Test script for Task 3.3: Verify foreign key constraint on enrollments.student_id
- * 
+ *
  * This script:
  * 1. Checks if the foreign key constraint exists
  * 2. Verifies the constraint is working by attempting to insert invalid data
  * 3. Checks for any existing invalid enrollment data
- * 
+ *
  * Expected Behavior:
  * - Foreign key constraint should exist on enrollments.student_id
  * - Attempting to insert invalid student_id should fail with error code 23503
@@ -28,7 +28,12 @@ interface TestResult {
 
 const results: TestResult[] = [];
 
-const addResult = (step: string, status: "PASS" | "FAIL" | "INFO", message: string, details?: any) => {
+const addResult = (
+  step: string,
+  status: "PASS" | "FAIL" | "INFO",
+  message: string,
+  details?: any
+) => {
   results.push({ step, status, message, details });
 };
 
@@ -38,7 +43,8 @@ const printResults = () => {
   console.log("═══════════════════════════════════════════════════════\n");
 
   results.forEach((result, index) => {
-    const icon = result.status === "PASS" ? "✅" : result.status === "FAIL" ? "❌" : "ℹ️";
+    const icon =
+      result.status === "PASS" ? "✅" : result.status === "FAIL" ? "❌" : "ℹ️";
     console.log(`${icon} Step ${index + 1}: ${result.step}`);
     console.log(`   ${result.message}`);
     if (result.details) {
@@ -47,8 +53,8 @@ const printResults = () => {
     console.log();
   });
 
-  const passCount = results.filter(r => r.status === "PASS").length;
-  const failCount = results.filter(r => r.status === "FAIL").length;
+  const passCount = results.filter((r) => r.status === "PASS").length;
+  const failCount = results.filter((r) => r.status === "FAIL").length;
 
   console.log("═══════════════════════════════════════════════════════");
   console.log(`Summary: ${passCount} passed, ${failCount} failed`);
@@ -57,9 +63,13 @@ const printResults = () => {
 
 const testForeignKeyConstraint = async () => {
   const connectionString = process.env.DATABASE_URL;
-  
+
   if (!connectionString) {
-    addResult("Configuration", "FAIL", "DATABASE_URL environment variable is not set");
+    addResult(
+      "Configuration",
+      "FAIL",
+      "DATABASE_URL environment variable is not set"
+    );
     printResults();
     process.exit(1);
   }
@@ -75,11 +85,15 @@ const testForeignKeyConstraint = async () => {
     // Test connection
     console.log("🔍 Testing database connection...\n");
     await pool.query("SELECT 1");
-    addResult("Database Connection", "PASS", "Successfully connected to database");
+    addResult(
+      "Database Connection",
+      "PASS",
+      "Successfully connected to database"
+    );
 
     // Step 1: Check if foreign key constraint exists
     console.log("Step 1: Checking for foreign key constraint...\n");
-    
+
     const constraintQuery = `
       SELECT
         tc.constraint_name,
@@ -129,30 +143,29 @@ const testForeignKeyConstraint = async () => {
 
     // Step 2: Test constraint by attempting to insert invalid data
     console.log("Step 2: Testing constraint enforcement...\n");
-    
+
     try {
       const invalidUserId = "00000000-0000-0000-0000-000000000000";
       const testCourseId = "00000000-0000-0000-0000-000000000001";
       const testPaymentId = "00000000-0000-0000-0000-000000000002";
-      
+
       await pool.query(
         `INSERT INTO enrollments (student_id, course_id, payment_id) 
          VALUES ($1, $2, $3)`,
         [invalidUserId, testCourseId, testPaymentId]
       );
-      
+
       // If we get here, the constraint didn't work
       addResult(
         "Constraint Enforcement Test",
         "FAIL",
         "Invalid insert was allowed - constraint is not working!"
       );
-      
+
       // Clean up the invalid data we just inserted
-      await pool.query(
-        `DELETE FROM enrollments WHERE student_id = $1`,
-        [invalidUserId]
-      );
+      await pool.query(`DELETE FROM enrollments WHERE student_id = $1`, [
+        invalidUserId,
+      ]);
     } catch (error: any) {
       if (error.code === "23503") {
         addResult(
@@ -173,16 +186,16 @@ const testForeignKeyConstraint = async () => {
 
     // Step 3: Check for existing invalid enrollment data
     console.log("Step 3: Checking for invalid enrollment data...\n");
-    
+
     const invalidDataQuery = `
       SELECT e.id, e.student_id, e.course_id, e.enrolled_at
       FROM enrollments e
       LEFT JOIN users u ON e.student_id = u.id
       WHERE u.id IS NULL;
     `;
-    
+
     const invalidDataResult = await pool.query(invalidDataQuery);
-    
+
     if (invalidDataResult.rows.length === 0) {
       addResult(
         "Invalid Data Check",
@@ -200,7 +213,7 @@ const testForeignKeyConstraint = async () => {
 
     // Step 4: Verify constraint has ON DELETE CASCADE
     console.log("Step 4: Verifying ON DELETE CASCADE behavior...\n");
-    
+
     if (constraintResult.rows.length > 0) {
       const deleteRule = constraintResult.rows[0].delete_rule;
       if (deleteRule === "CASCADE") {
@@ -218,15 +231,16 @@ const testForeignKeyConstraint = async () => {
         );
       }
     }
-
   } catch (error: any) {
     console.error("❌ Error during testing:", error.message);
-    addResult("Test Execution", "FAIL", `Error: ${error.message}`, { error: error.stack });
+    addResult("Test Execution", "FAIL", `Error: ${error.message}`, {
+      error: error.stack,
+    });
   } finally {
     await pool.end();
     printResults();
-    
-    const hasFailures = results.some(r => r.status === "FAIL");
+
+    const hasFailures = results.some((r) => r.status === "FAIL");
     process.exit(hasFailures ? 1 : 0);
   }
 };

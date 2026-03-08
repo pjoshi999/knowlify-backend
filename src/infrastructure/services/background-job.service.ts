@@ -1,6 +1,6 @@
 /**
  * Background Job Service
- * 
+ *
  * Manages background job enqueueing and status tracking
  */
 
@@ -11,11 +11,11 @@ import { createModuleLogger } from "../../shared/logger.js";
 
 const log = createModuleLogger("background-job-service");
 
-const QUEUE_NAME = 'ai-analysis';
+const QUEUE_NAME = "ai-analysis";
 
 export interface JobStatus {
   id: string;
-  status: 'queued' | 'processing' | 'completed' | 'failed';
+  status: "queued" | "processing" | "completed" | "failed";
   progress?: number;
   result?: unknown;
   error?: string;
@@ -40,19 +40,25 @@ export class BackgroundJobService {
    * Enqueue an analysis job
    */
   async enqueueAnalysis(data: AnalysisJobData): Promise<string> {
-    log.info({ lessonId: data.lessonId, assetType: data.assetType }, "Enqueueing analysis job");
+    log.info(
+      { lessonId: data.lessonId, assetType: data.assetType },
+      "Enqueueing analysis job"
+    );
 
-    const job = await this.queue.add('analyze-content', data, {
+    const job = await this.queue.add("analyze-content", data, {
       attempts: 3,
       backoff: {
-        type: 'exponential',
+        type: "exponential",
         delay: 1000, // Start with 1 second, then 2s, 4s
       },
       removeOnComplete: 100, // Keep last 100 completed jobs
       removeOnFail: false, // Keep failed jobs for debugging
     });
 
-    log.info({ jobId: job.id, lessonId: data.lessonId }, "Analysis job enqueued");
+    log.info(
+      { jobId: job.id, lessonId: data.lessonId },
+      "Analysis job enqueued"
+    );
 
     return job.id!;
   }
@@ -60,17 +66,19 @@ export class BackgroundJobService {
   /**
    * Enqueue multiple analysis jobs
    */
-  async enqueueMultipleAnalyses(dataArray: AnalysisJobData[]): Promise<string[]> {
+  async enqueueMultipleAnalyses(
+    dataArray: AnalysisJobData[]
+  ): Promise<string[]> {
     log.info({ count: dataArray.length }, "Enqueueing multiple analysis jobs");
 
     const jobs = await this.queue.addBulk(
-      dataArray.map(data => ({
-        name: 'analyze-content',
+      dataArray.map((data) => ({
+        name: "analyze-content",
         data,
         opts: {
           attempts: 3,
           backoff: {
-            type: 'exponential',
+            type: "exponential",
             delay: 1000,
           },
           removeOnComplete: 100,
@@ -79,7 +87,7 @@ export class BackgroundJobService {
       }))
     );
 
-    const jobIds = jobs.map(job => job.id!);
+    const jobIds = jobs.map((job) => job.id!);
 
     log.info({ count: jobIds.length }, "Multiple analysis jobs enqueued");
 
@@ -97,25 +105,26 @@ export class BackgroundJobService {
     }
 
     const state = await job.getState();
-    const progress = typeof job.progress === 'number' ? job.progress : undefined;
+    const progress =
+      typeof job.progress === "number" ? job.progress : undefined;
 
-    let status: JobStatus['status'];
+    let status: JobStatus["status"];
     switch (state) {
-      case 'waiting':
-      case 'delayed':
-        status = 'queued';
+      case "waiting":
+      case "delayed":
+        status = "queued";
         break;
-      case 'active':
-        status = 'processing';
+      case "active":
+        status = "processing";
         break;
-      case 'completed':
-        status = 'completed';
+      case "completed":
+        status = "completed";
         break;
-      case 'failed':
-        status = 'failed';
+      case "failed":
+        status = "failed";
         break;
       default:
-        status = 'queued';
+        status = "queued";
     }
 
     return {
@@ -130,7 +139,9 @@ export class BackgroundJobService {
   /**
    * Get status for multiple jobs
    */
-  async getMultipleJobStatuses(jobIds: string[]): Promise<Map<string, JobStatus>> {
+  async getMultipleJobStatuses(
+    jobIds: string[]
+  ): Promise<Map<string, JobStatus>> {
     const statusMap = new Map<string, JobStatus>();
 
     await Promise.all(
