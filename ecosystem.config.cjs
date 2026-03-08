@@ -8,8 +8,8 @@ module.exports = {
   apps: [
     {
       name: "knowlify-api",
-      script: "tsx",
-      args: "src/index.ts",
+      script: "pnpm",
+      args: "exec tsx src/index.ts",
       instances: 1, // Run 2 instances for load balancing
       exec_mode: "cluster",
       env: {
@@ -24,8 +24,8 @@ module.exports = {
     },
     {
       name: "knowlify-worker",
-      script: "tsx",
-      args: "src/workers/video-analysis.worker.ts",
+      script: "pnpm",
+      args: "exec tsx src/workers/video-analysis.worker.ts",
       instances: 1, // Run 3 worker instances
       exec_mode: "cluster",
       env: {

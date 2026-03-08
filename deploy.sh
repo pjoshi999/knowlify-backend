@@ -104,7 +104,7 @@ echo ""
 
 # Step 8: Start application
 echo "▶️  Starting application with PM2..."
-pm2 start ecosystem.simple.cjs
+pm2 start ecosystem.config.cjs
 
 # Wait a bit for startup
 sleep 3
