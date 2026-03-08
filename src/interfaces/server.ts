@@ -20,7 +20,7 @@ interface ServerConfig {
   enrollmentRoutes: Router;
   reviewRoutes: Router;
   paymentRoutes: Router;
-  uploadRoutes: Router;
+  uploadRoutes?: Router; // Optional for now
   instructorRoutes: Router;
   searchRoutes: Router;
   chatRoutes: Router;
@@ -128,7 +128,9 @@ export const createServer = ({
   app.use("/api/enrollments", enrollmentRoutes);
   app.use("/api/reviews", reviewRoutes);
   app.use("/api/payments", paymentRoutes);
-  app.use("/api/uploads", uploadRoutes);
+  if (uploadRoutes) {
+    app.use("/api/uploads", uploadRoutes);
+  }
   app.use("/api/instructor", instructorRoutes);
   app.use("/api/search", searchRoutes);
   app.use("/api/chat", chatRoutes);

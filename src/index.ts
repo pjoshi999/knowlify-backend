@@ -15,7 +15,7 @@ import { createCourseRoutes } from "./interfaces/routes/course.routes.js";
 import { createEnrollmentRoutes } from "./interfaces/routes/enrollment.routes.js";
 import { createReviewRoutes } from "./interfaces/routes/review.routes.js";
 import { createPaymentRoutes } from "./interfaces/routes/payment.routes.js";
-import { createUploadRoutes } from "./interfaces/routes/upload.routes.js";
+// import { createUploadRoutes } from "./interfaces/routes/upload.routes.js";
 import { createInstructorRoutes } from "./interfaces/routes/instructor.routes.js";
 import { createSearchRoutes } from "./interfaces/routes/search.routes.js";
 import { createUserRepository } from "./infrastructure/repositories/user.repository.js";
@@ -244,11 +244,7 @@ const startServer = async (): Promise<void> => {
       courseRepository,
       authenticate,
     });
-    const uploadRoutes = createUploadRoutes({
-      storage: s3Service,
-      authenticate,
-      requireRole,
-    });
+  
     const instructorRoutes = createInstructorRoutes({
       courseRepository,
       cache: cacheService,
@@ -308,7 +304,7 @@ const startServer = async (): Promise<void> => {
       enrollmentRoutes,
       reviewRoutes,
       paymentRoutes,
-      uploadRoutes,
+      // uploadRoutes, // TODO: Implement new upload routes
       instructorRoutes,
       searchRoutes,
       chatRoutes,

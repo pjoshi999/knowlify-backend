@@ -354,9 +354,15 @@ export function generateStorageKey(
 ): string {
   const uuid = crypto.randomUUID();
   const extension = fileName.split(".").pop() || "mp4";
-  // Use "unassigned" as placeholder if courseId is null
-  const coursePath = courseId || "unassigned";
-  return `${instructorId}/${coursePath}/${uuid}.${extension}`;
+  
+  // New structured path: courses/{courseId}/modules/{moduleId}/videos/{uuid}.{ext}
+  // For now, use a default module until we implement module management
+  if (courseId) {
+    return `courses/${courseId}/modules/default/videos/${uuid}.${extension}`;
+  }
+  
+  // Temporary storage for uploads before course is created
+  return `temp-uploads/${instructorId}/${uuid}.${extension}`;
 }
 
 // Utility function to calculate chunk size and count
