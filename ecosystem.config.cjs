@@ -9,7 +9,7 @@ module.exports = {
     {
       name: "knowlify-api",
       script: "./dist/index.js",
-      instances: 2, // Run 2 instances for load balancing
+      instances: 1, // Run 2 instances for load balancing
       exec_mode: "cluster",
       env: {
         NODE_ENV: "production",
@@ -24,7 +24,7 @@ module.exports = {
     {
       name: "knowlify-worker",
       script: "./dist/workers/video-analysis.worker.js",
-      instances: 3, // Run 3 worker instances
+      instances: 1, // Run 3 worker instances
       exec_mode: "cluster",
       env: {
         NODE_ENV: "production",
