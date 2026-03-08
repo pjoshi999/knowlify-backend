@@ -1,6 +1,6 @@
 import dns from "node:dns";
 import { URL } from "node:url";
-import { RequestHandler } from "express";
+import { RequestHandler, Router, Request, Response } from "express";
 import { config, validateConfig } from "./shared/config.js";
 import { createModuleLogger } from "./shared/logger.js";
 import {
@@ -37,8 +37,24 @@ import {
 } from "./interfaces/middleware/auth.middleware.js";
 import { wakeupSupabase } from "./infrastructure/database/db-wakeup.js";
 import { startDbKeepaliveScheduler } from "./infrastructure/queue/db-keepalive.worker.js";
+import { S3Client } from "@aws-sdk/client-s3";
+import { SQSClient } from "@aws-sdk/client-sqs";
+import { S3StorageAdapter } from "./infrastructure/adapters/storage.adapter.js";
+import { SessionStateManager } from "./application/services/session-state-manager.service.js";
+import { ChunkManager } from "./application/services/chunk-manager.service.js";
+import { RateLimiter } from "./application/services/rate-limiter.service.js";
+import { UploadScheduler } from "./application/services/upload-scheduler.service.js";
+import { CostOptimizer } from "./application/services/cost-optimizer.service.js";
+import { MonitoringCollectorService } from "./application/services/monitoring-collector.service.js";
+import { AnalyticsService } from "./application/services/analytics.service.js";
+import { createVideoUploadRoutes } from "./interfaces/routes/video-upload.routes.js";
+import { createAnalyticsRoutes } from "./interfaces/routes/analytics.routes.js";
+import { createHealthRoutes } from "./interfaces/routes/health.routes.js";
+import { JobScheduler } from "./infrastructure/jobs/scheduler.js";
 
 const log = createModuleLogger("server");
+
+let jobScheduler: JobScheduler | undefined;
 
 const configureDnsResolution = (): void => {
   const envOrder = process.env["DNS_RESULT_ORDER"];
@@ -146,6 +162,55 @@ const startServer = async (): Promise<void> => {
     const aiService = createOpenAIService(config.openai.apiKey);
     const queueService = createBullMQAdapter();
 
+    // Initialize video upload system services
+    const pool = (
+      await import("./infrastructure/database/pool.js")
+    ).getDatabasePool();
+    const redisClient = (
+      await import("./infrastructure/cache/redis.js")
+    ).getRedisClient();
+
+    const sqsClient = new SQSClient({
+      region: config.aws.region,
+      credentials: {
+        accessKeyId: config.aws.accessKeyId,
+        secretAccessKey: config.aws.secretAccessKey,
+      },
+    });
+
+    const storageAdapter = new S3StorageAdapter({
+      region: config.aws.region,
+      bucket: config.aws.s3BucketName,
+      accessKeyId: config.aws.accessKeyId,
+      secretAccessKey: config.aws.secretAccessKey,
+      enableTransferAcceleration:
+        config.videoUpload?.enableTransferAcceleration,
+    });
+    const sessionManager = new SessionStateManager(redisClient as any);
+    const chunkManager = new ChunkManager(storageAdapter);
+    const rateLimiter = new RateLimiter(redisClient as any);
+    const scheduler = new UploadScheduler(redisClient as any);
+    const costOptimizer = new CostOptimizer(storageAdapter);
+    const monitoringCollector = new MonitoringCollectorService(pool);
+    const analyticsService = new AnalyticsService(pool);
+
+    // Initialize background job scheduler
+    const s3Client = new S3Client({
+      region: config.aws.region,
+      credentials: {
+        accessKeyId: config.aws.accessKeyId,
+        secretAccessKey: config.aws.secretAccessKey,
+      },
+    });
+
+    jobScheduler = new JobScheduler(
+      pool,
+      s3Client,
+      costOptimizer,
+      config.aws.s3BucketName
+    );
+    jobScheduler.start();
+
     const authenticate = createAuthMiddleware(userRepository, authService);
     const authorizeInstructor = createRoleMiddleware("INSTRUCTOR");
     const requireRole = (role: string): RequestHandler =>
@@ -203,6 +268,40 @@ const startServer = async (): Promise<void> => {
       queueService,
     });
 
+    const videoUploadRoutes = createVideoUploadRoutes({
+      sessionManager,
+      chunkManager,
+      rateLimiter,
+      scheduler,
+      storageAdapter,
+      authenticate,
+      requireRole,
+    });
+
+    const analyticsRoutes = createAnalyticsRoutes(analyticsService);
+
+    const healthRoutes = createHealthRoutes({
+      pool,
+      redisClient: redisClient as any,
+      s3Client,
+      sqsClient,
+      bucketName: config.aws.s3BucketName,
+      queueUrl: config.aws.sqsQueueUrl,
+    });
+
+    // Metrics endpoint for Prometheus
+    const metricsRouter = Router();
+    metricsRouter.get("/metrics", async (_req: Request, res: Response) => {
+      try {
+        const metrics = await monitoringCollector.getMetricsText();
+        res.set("Content-Type", "text/plain");
+        res.send(metrics);
+      } catch (error) {
+        log.error({ err: error }, "Failed to get metrics");
+        res.status(500).send("Failed to get metrics");
+      }
+    });
+
     const app = createServer({
       authRoutes,
       courseRoutes,
@@ -213,6 +312,10 @@ const startServer = async (): Promise<void> => {
       instructorRoutes,
       searchRoutes,
       chatRoutes,
+      videoUploadRoutes,
+      analyticsRoutes,
+      healthRoutes,
+      metricsRouter,
       isDatabaseReady,
     });
 
@@ -238,6 +341,12 @@ const startServer = async (): Promise<void> => {
 
 const shutdown = (): void => {
   log.info("Shutting down gracefully...");
+
+  // Stop background job scheduler
+  if (jobScheduler) {
+    jobScheduler.stop();
+  }
+
   process.exit(0);
 };
 

@@ -45,6 +45,16 @@ interface Config {
     accessKeyId: string;
     secretAccessKey: string;
     s3BucketName: string;
+    sqsQueueUrl: string;
+    sqsHighPriorityQueueUrl: string;
+    sqsLowPriorityQueueUrl: string;
+  };
+  videoUpload: {
+    chunkSize: number;
+    sessionTtl: number;
+    maxConcurrentUploads: number;
+    dailyQuotaGB: number;
+    enableTransferAcceleration: boolean;
   };
   cors: {
     origin: string;
@@ -97,7 +107,7 @@ const getEnvBoolean = (key: string, defaultValue?: boolean): boolean => {
 
 export const config: Config = {
   server: {
-    port: getEnvNumber("PORT", 3000),
+    port: getEnvNumber("PORT", 8080),
     host: getEnv("HOST", "localhost"),
     nodeEnv: getEnv("NODE_ENV", "development"),
   },
@@ -138,6 +148,19 @@ export const config: Config = {
     accessKeyId: getEnv("AWS_ACCESS_KEY_ID"),
     secretAccessKey: getEnv("AWS_SECRET_ACCESS_KEY"),
     s3BucketName: getEnv("S3_BUCKET_NAME"),
+    sqsQueueUrl: getEnv("SQS_QUEUE_URL", ""),
+    sqsHighPriorityQueueUrl: getEnv("SQS_HIGH_PRIORITY_QUEUE_URL", ""),
+    sqsLowPriorityQueueUrl: getEnv("SQS_LOW_PRIORITY_QUEUE_URL", ""),
+  },
+  videoUpload: {
+    chunkSize: getEnvNumber("VIDEO_UPLOAD_CHUNK_SIZE", 104857600), // 100MB
+    sessionTtl: getEnvNumber("VIDEO_UPLOAD_SESSION_TTL", 86400), // 24 hours
+    maxConcurrentUploads: getEnvNumber("VIDEO_UPLOAD_MAX_CONCURRENT", 3),
+    dailyQuotaGB: getEnvNumber("VIDEO_UPLOAD_DAILY_QUOTA_GB", 100),
+    enableTransferAcceleration: getEnvBoolean(
+      "VIDEO_UPLOAD_ENABLE_ACCELERATION",
+      true
+    ),
   },
   cors: {
     origin: getEnv("CORS_ORIGIN", "http://localhost:5173"),

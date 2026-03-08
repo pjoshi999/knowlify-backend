@@ -24,6 +24,10 @@ interface ServerConfig {
   instructorRoutes: Router;
   searchRoutes: Router;
   chatRoutes: Router;
+  videoUploadRoutes: Router;
+  analyticsRoutes: Router;
+  healthRoutes: Router;
+  metricsRouter: Router;
   isDatabaseReady: () => boolean;
 }
 
@@ -37,6 +41,10 @@ export const createServer = ({
   instructorRoutes,
   searchRoutes,
   chatRoutes,
+  videoUploadRoutes,
+  analyticsRoutes,
+  healthRoutes,
+  metricsRouter,
   isDatabaseReady,
 }: ServerConfig): Express => {
   const app = express();
@@ -124,6 +132,10 @@ export const createServer = ({
   app.use("/api/instructor", instructorRoutes);
   app.use("/api/search", searchRoutes);
   app.use("/api/chat", chatRoutes);
+  app.use("/api/v1/video-uploads", videoUploadRoutes);
+  app.use("/api/v1/analytics", analyticsRoutes);
+  app.use("/", healthRoutes);
+  app.use("/", metricsRouter);
 
   app.use(errorHandler);
 

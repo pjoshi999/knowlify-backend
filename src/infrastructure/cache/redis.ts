@@ -1,5 +1,6 @@
-import { createClient, RedisClientType } from "redis";
+import { createClient } from "redis";
 import { createModuleLogger } from "../../shared/logger.js";
+import { RedisClient } from "./redis-types.js";
 
 const log = createModuleLogger("redis");
 
@@ -10,11 +11,11 @@ interface RedisConfig {
   db?: number;
 }
 
-let client: RedisClientType | null = null;
+let client: RedisClient | null = null;
 
 export const createRedisClient = async (
   config: RedisConfig
-): Promise<RedisClientType> => {
+): Promise<RedisClient> => {
   if (client) {
     return client;
   }
@@ -45,7 +46,7 @@ export const createRedisClient = async (
   return client;
 };
 
-export const getRedisClient = (): RedisClientType => {
+export const getRedisClient = (): RedisClient => {
   if (!client) {
     throw new Error(
       "Redis client not initialized. Call createRedisClient first."
