@@ -2,7 +2,7 @@ import { z } from "zod";
 
 // Request Schemas
 export const initiateUploadSchema = z.object({
-  instructorId: z.string().uuid(),
+  // instructorId is extracted from authenticated user (req.user.id), not from request body
   courseId: z.string().uuid().optional(), // Optional - can be associated with course later
   fileName: z.string().min(1).max(1024),
   fileSize: z.number().int().positive().max(53687091200), // 50GB max
@@ -24,7 +24,7 @@ export const chunkNumberSchema = z.object({
 });
 
 export const listUploadsSchema = z.object({
-  instructorId: z.string().uuid(),
+  // instructorId is extracted from authenticated user (req.user.id), not from query params
   status: z
     .enum([
       "pending",

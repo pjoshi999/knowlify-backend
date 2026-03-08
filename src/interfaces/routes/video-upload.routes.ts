@@ -68,15 +68,18 @@ export const createVideoUploadRoutes = (
 
         const data = validationResult.data;
 
+        // Get instructorId from authenticated user
+        const instructorId = req.user!.id;
+
         // Get instructor tier (would come from user context in real app)
         const instructorTier: InstructorTier = "standard"; // TODO: Get from user profile
 
         // Check rate limits
-        await rateLimiter.checkApiRateLimit(data.instructorId, instructorTier);
-        await rateLimiter.checkPresignedUrlLimit(data.instructorId);
+        await rateLimiter.checkApiRateLimit(instructorId, instructorTier);
+        await rateLimiter.checkPresignedUrlLimit(instructorId);
 
         const canUpload = await rateLimiter.canStartUpload(
-          data.instructorId,
+          instructorId,
           instructorTier
         );
 
@@ -92,14 +95,14 @@ export const createVideoUploadRoutes = (
 
         // Check daily quota
         await rateLimiter.checkDailyQuota(
-          data.instructorId,
+          instructorId,
           instructorTier,
           data.fileSize
         );
 
         // Create upload session
         const session = await sessionManager.createSession({
-          instructorId: data.instructorId,
+          instructorId: instructorId,
           courseId: data.courseId || null, // Allow null if not provided
           fileName: data.fileName,
           fileSize: data.fileSize,
@@ -112,7 +115,7 @@ export const createVideoUploadRoutes = (
           key: session.storageKey,
           contentType: data.mimeType,
           metadata: {
-            instructorId: data.instructorId,
+            instructorId: instructorId,
             courseId: data.courseId || "unassigned", // Use placeholder if not provided
             originalFileName: data.fileName,
             uploadTimestamp: new Date().toISOString(),
@@ -129,7 +132,7 @@ export const createVideoUploadRoutes = (
         // Schedule upload
         const scheduleResult = await scheduler.scheduleUpload({
           sessionId: session.sessionId,
-          instructorId: data.instructorId,
+          instructorId: instructorId,
           instructorTier,
           fileSize: data.fileSize,
           coursePublished: false, // TODO: Check if course is published
@@ -152,10 +155,7 @@ export const createVideoUploadRoutes = (
         }
 
         // Acquire upload slot
-        await rateLimiter.acquireUploadSlot(
-          data.instructorId,
-          session.sessionId
-        );
+        await rateLimiter.acquireUploadSlot(instructorId, session.sessionId);
 
         // Generate pre-signed URL for first chunk
         const presignedUrl = await storageAdapter.generatePresignedUrl({
@@ -420,7 +420,10 @@ export const createVideoUploadRoutes = (
           });
         }
 
-        const { instructorId, status, page, limit } = validationResult.data;
+        const { status, page, limit } = validationResult.data;
+
+        // Get instructorId from authenticated user
+        const instructorId = req.user!.id;
 
         // List sessions
         const result = await sessionManager.listSessions(
