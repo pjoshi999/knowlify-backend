@@ -101,7 +101,8 @@ export class SessionStateManager {
       // Cache in Redis
       await this.cacheSession(session);
 
-      logger.info({ message: "Created upload session", 
+      logger.info({
+        message: "Created upload session",
         sessionId: session.sessionId,
         instructorId: params.instructorId,
         courseId: params.courseId,
@@ -111,7 +112,11 @@ export class SessionStateManager {
 
       return session;
     } catch (error) {
-      logger.error({ message: "Failed to create upload session",  error, params });
+      logger.error({
+        message: "Failed to create upload session",
+        error,
+        params,
+      });
       throw new DatabaseError("Failed to create upload session", {
         originalError: error instanceof Error ? error.message : String(error),
       });
@@ -159,7 +164,11 @@ export class SessionStateManager {
 
       return session;
     } catch (error) {
-      logger.error({ message: "Failed to get upload session",  error, sessionId });
+      logger.error({
+        message: "Failed to get upload session",
+        error,
+        sessionId,
+      });
       throw new DatabaseError("Failed to get upload session", {
         originalError: error instanceof Error ? error.message : String(error),
       });
@@ -189,8 +198,11 @@ export class SessionStateManager {
         const currentStatus = result.rows[0]!.status;
         const currentVersion = result.rows[0]!.version;
 
-        // Validate status transition
-        if (!canTransitionTo(currentStatus, newStatus)) {
+        // Validate status transition (skip validation if status is not changing)
+        if (
+          currentStatus !== newStatus &&
+          !canTransitionTo(currentStatus, newStatus)
+        ) {
           throw new InvalidStatusTransitionError(currentStatus, newStatus);
         }
 
@@ -213,7 +225,7 @@ export class SessionStateManager {
       // Invalidate cache
       await this.invalidateCache(sessionId);
 
-      logger.info({ message: "Updated session status",  sessionId, newStatus });
+      logger.info({ message: "Updated session status", sessionId, newStatus });
     } catch (error) {
       if (
         error instanceof SessionNotFoundError ||
@@ -223,12 +235,46 @@ export class SessionStateManager {
         throw error;
       }
 
-      logger.error({ message: "Failed to update session status", 
+      logger.error({
+        message: "Failed to update session status",
         error,
         sessionId,
         newStatus,
       });
       throw new DatabaseError("Failed to update session status", {
+        originalError: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  async updateUploadId(sessionId: string, uploadId: string): Promise<void> {
+    try {
+      const result = await query(
+        `UPDATE upload_sessions 
+         SET upload_id = $1, updated_at = NOW()
+         WHERE session_id = $2`,
+        [uploadId, sessionId]
+      );
+
+      if (result.rowCount === 0) {
+        throw new SessionNotFoundError(sessionId);
+      }
+
+      // Invalidate cache
+      await this.invalidateCache(sessionId);
+
+      logger.info({ message: "Updated upload ID", sessionId, uploadId });
+    } catch (error) {
+      if (error instanceof SessionNotFoundError) {
+        throw error;
+      }
+
+      logger.error({
+        message: "Failed to update upload ID",
+        error,
+        sessionId,
+      });
+      throw new DatabaseError("Failed to update upload ID", {
         originalError: error instanceof Error ? error.message : String(error),
       });
     }
@@ -305,7 +351,12 @@ export class SessionStateManager {
         total,
       };
     } catch (error) {
-      logger.error({ message: "Failed to list sessions",  error, instructorId, filters });
+      logger.error({
+        message: "Failed to list sessions",
+        error,
+        instructorId,
+        filters,
+      });
       throw new DatabaseError("Failed to list sessions", {
         originalError: error instanceof Error ? error.message : String(error),
       });
@@ -335,7 +386,7 @@ export class SessionStateManager {
       // Invalidate cache
       await this.invalidateCache(sessionId);
 
-      logger.info({ message: "Extended session TTL",  sessionId, newExpiresAt });
+      logger.info({ message: "Extended session TTL", sessionId, newExpiresAt });
     } catch (error) {
       if (
         error instanceof SessionNotFoundError ||
@@ -344,7 +395,11 @@ export class SessionStateManager {
         throw error;
       }
 
-      logger.error({ message: "Failed to extend session TTL",  error, sessionId });
+      logger.error({
+        message: "Failed to extend session TTL",
+        error,
+        sessionId,
+      });
       throw new DatabaseError("Failed to extend session TTL", {
         originalError: error instanceof Error ? error.message : String(error),
       });
@@ -362,11 +417,11 @@ export class SessionStateManager {
 
       const deletedCount = result.rowCount || 0;
 
-      logger.info({ message: "Cleaned up abandoned sessions",  deletedCount });
+      logger.info({ message: "Cleaned up abandoned sessions", deletedCount });
 
       return deletedCount;
     } catch (error) {
-      logger.error({ message: "Failed to cleanup abandoned sessions",  error });
+      logger.error({ message: "Failed to cleanup abandoned sessions", error });
       throw new DatabaseError("Failed to cleanup abandoned sessions", {
         originalError: error instanceof Error ? error.message : String(error),
       });
@@ -384,7 +439,8 @@ export class SessionStateManager {
         JSON.stringify(session)
       );
     } catch (error) {
-      logger.warn({ message: "Failed to cache session", 
+      logger.warn({
+        message: "Failed to cache session",
         error,
         sessionId: session.sessionId,
       });
@@ -404,7 +460,11 @@ export class SessionStateManager {
 
       return JSON.parse(cached) as UploadSession;
     } catch (error) {
-      logger.warn({ message: "Failed to get cached session",  error, sessionId });
+      logger.warn({
+        message: "Failed to get cached session",
+        error,
+        sessionId,
+      });
       return null;
     }
   }
@@ -416,7 +476,7 @@ export class SessionStateManager {
       const key = `upload:session:${sessionId}`;
       await this.redisClient.del(key);
     } catch (error) {
-      logger.warn({ message: "Failed to invalidate cache",  error, sessionId });
+      logger.warn({ message: "Failed to invalidate cache", error, sessionId });
     }
   }
 }

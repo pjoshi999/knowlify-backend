@@ -123,11 +123,7 @@ export const createVideoUploadRoutes = (
         });
 
         // Update session with actual S3 upload ID
-        await sessionManager.updateSessionStatus(
-          session.sessionId,
-          "pending",
-          uploadId
-        );
+        await sessionManager.updateUploadId(session.sessionId, uploadId);
 
         // Schedule upload
         const scheduleResult = await scheduler.scheduleUpload({
