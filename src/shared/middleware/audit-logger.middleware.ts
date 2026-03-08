@@ -94,7 +94,7 @@ export class AuditLogger {
     if (method === "DELETE") {
       return "upload_cancelled";
     }
-    if (method === "GET" && path === "/api/v1/uploads") {
+    if (method === "GET" && path === "/api/uploads") {
       return "uploads_listed";
     }
 

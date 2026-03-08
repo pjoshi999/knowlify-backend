@@ -91,7 +91,7 @@ export class TranscodingJobPublisher {
         sourceKey: session.storageKey,
         priority,
         profiles,
-        callbackUrl: `${process.env["BACKEND_URL"] || "http://localhost:8080"}/api/v1/transcoding/callback`,
+        callbackUrl: `${process.env["BACKEND_URL"] || "http://localhost:8080"}/api/transcoding/callback`,
         metadata: {
           fileName: session.fileName,
           fileSize: session.fileSize,
@@ -185,7 +185,7 @@ export class TranscodingJobPublisher {
           sourceKey: session.storageKey,
           priority,
           profiles,
-          callbackUrl: `${process.env["BACKEND_URL"] || "http://localhost:8080"}/api/v1/transcoding/callback`,
+          callbackUrl: `${process.env["BACKEND_URL"] || "http://localhost:8080"}/api/transcoding/callback`,
           metadata: {
             fileName: session.fileName,
             fileSize: session.fileSize,

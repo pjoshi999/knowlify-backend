@@ -50,7 +50,7 @@ export const createVideoUploadRoutes = (
     requireRole,
   } = config;
 
-  // POST /api/v1/video-uploads/initiate - Initiate multipart upload
+  // POST /api/video-uploads/initiate - Initiate multipart upload
   router.post(
     "/initiate",
     authenticate,
@@ -190,7 +190,7 @@ export const createVideoUploadRoutes = (
     }
   );
 
-  // POST /api/v1/video-uploads/:sessionId/chunks/:chunkNumber - Report chunk completion
+  // POST /api/video-uploads/:sessionId/chunks/:chunkNumber - Report chunk completion
   router.post(
     "/:sessionId/chunks/:chunkNumber",
     authenticate,
@@ -272,7 +272,7 @@ export const createVideoUploadRoutes = (
     }
   );
 
-  // GET /api/v1/video-uploads/:sessionId/progress - Get upload progress
+  // GET /api/video-uploads/:sessionId/progress - Get upload progress
   router.get(
     "/:sessionId/progress",
     authenticate,
@@ -323,7 +323,7 @@ export const createVideoUploadRoutes = (
     }
   );
 
-  // POST /api/v1/video-uploads/:sessionId/refresh-url - Refresh expired pre-signed URL
+  // POST /api/video-uploads/:sessionId/refresh-url - Refresh expired pre-signed URL
   router.post(
     "/:sessionId/refresh-url",
     authenticate,
@@ -366,7 +366,7 @@ export const createVideoUploadRoutes = (
     }
   );
 
-  // DELETE /api/v1/video-uploads/:sessionId - Cancel upload
+  // DELETE /api/video-uploads/:sessionId - Cancel upload
   router.delete(
     "/:sessionId",
     authenticate,
@@ -404,7 +404,7 @@ export const createVideoUploadRoutes = (
     }
   );
 
-  // GET /api/v1/video-uploads - List uploads for instructor
+  // GET /api/video-uploads - List uploads for instructor
   router.get(
     "/",
     authenticate,

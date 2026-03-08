@@ -7,10 +7,10 @@ export function createAnalyticsRoutes(
 ): Router {
   const router = Router();
 
-  // GET /api/v1/analytics/instructor/:id
+  // GET /api/analytics/instructor/:id
   router.get("/instructor/:id", async (req: Request, res: Response) => {
     try {
-      const instructorId = req.params['id'] as string;
+      const instructorId = req.params["id"] as string;
 
       // Verify user has permission to view this instructor's analytics
       // (In production, check if req.user.id === instructorId or user is admin)
@@ -31,9 +31,10 @@ export function createAnalyticsRoutes(
         recommendations,
       });
     } catch (error) {
-      logger.error({ message: "Failed to get instructor analytics", 
+      logger.error({
+        message: "Failed to get instructor analytics",
         error,
-        instructorId: req.params['id'],
+        instructorId: req.params["id"],
       });
       res.status(500).json({
         error: "Failed to retrieve instructor analytics",
@@ -42,10 +43,10 @@ export function createAnalyticsRoutes(
     }
   });
 
-  // GET /api/v1/analytics/course/:id
+  // GET /api/analytics/course/:id
   router.get("/course/:id", async (req: Request, res: Response) => {
     try {
-      const courseId = req.params['id'] as string;
+      const courseId = req.params["id"] as string;
 
       // Verify user has permission to view this course's analytics
       // (In production, check if user owns the course or is admin)
@@ -61,9 +62,10 @@ export function createAnalyticsRoutes(
         transcodingMetrics,
       });
     } catch (error) {
-      logger.error({ message: "Failed to get course analytics", 
+      logger.error({
+        message: "Failed to get course analytics",
         error,
-        courseId: req.params['id'],
+        courseId: req.params["id"],
       });
       res.status(500).json({
         error: "Failed to retrieve course analytics",

@@ -132,8 +132,8 @@ export const createServer = ({
   app.use("/api/instructor", instructorRoutes);
   app.use("/api/search", searchRoutes);
   app.use("/api/chat", chatRoutes);
-  app.use("/api/v1/video-uploads", videoUploadRoutes);
-  app.use("/api/v1/analytics", analyticsRoutes);
+  app.use("/api/video-uploads", videoUploadRoutes);
+  app.use("/api/analytics", analyticsRoutes);
   app.use("/", healthRoutes);
   app.use("/", metricsRouter);
 

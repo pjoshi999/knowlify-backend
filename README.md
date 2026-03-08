@@ -212,12 +212,12 @@ pnpm run dev
 
 ### API Endpoints
 
-- `POST /api/v1/video-uploads/initiate` - Initiate multipart upload
-- `POST /api/v1/video-uploads/:sessionId/chunks/:chunkNumber` - Report chunk completion
-- `GET /api/v1/video-uploads/:sessionId/progress` - Get upload progress
-- `POST /api/v1/video-uploads/:sessionId/refresh-url` - Refresh expired pre-signed URL
-- `DELETE /api/v1/video-uploads/:sessionId` - Cancel upload
-- `GET /api/v1/video-uploads` - List uploads
+- `POST /api/video-uploads/initiate` - Initiate multipart upload
+- `POST /api/video-uploads/:sessionId/chunks/:chunkNumber` - Report chunk completion
+- `GET /api/video-uploads/:sessionId/progress` - Get upload progress
+- `POST /api/video-uploads/:sessionId/refresh-url` - Refresh expired pre-signed URL
+- `DELETE /api/video-uploads/:sessionId` - Cancel upload
+- `GET /api/video-uploads` - List uploads
 
 ### Monitoring
 

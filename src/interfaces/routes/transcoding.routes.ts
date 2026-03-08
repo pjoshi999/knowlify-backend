@@ -17,7 +17,7 @@ export const createTranscodingRoutes = (
   const router = Router();
   const { transcodingPublisher } = config;
 
-  // POST /api/v1/transcoding/callback/completion - Handle transcoding completion
+  // POST /api/transcoding/callback/completion - Handle transcoding completion
   router.post(
     "/callback/completion",
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -47,7 +47,7 @@ export const createTranscodingRoutes = (
     }
   );
 
-  // POST /api/v1/transcoding/callback/failure - Handle transcoding failure
+  // POST /api/transcoding/callback/failure - Handle transcoding failure
   router.post(
     "/callback/failure",
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -77,7 +77,7 @@ export const createTranscodingRoutes = (
     }
   );
 
-  // GET /api/v1/transcoding/jobs/:jobId - Get job status
+  // GET /api/transcoding/jobs/:jobId - Get job status
   router.get(
     "/jobs/:jobId",
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
