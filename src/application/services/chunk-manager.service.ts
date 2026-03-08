@@ -12,7 +12,7 @@ import {
   ChecksumMismatchError,
   ChunkAlreadyUploadedError,
   DatabaseError,
-} from "@shared/errors/upload-errors.js";
+} from "@shared/errors/upload-errors";
 import { logger } from "@shared/logger.js";
 
 export class ChunkManager {

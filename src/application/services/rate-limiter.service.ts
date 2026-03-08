@@ -2,7 +2,7 @@ import {
   ConcurrentUploadLimitError,
   DailyQuotaExceededError,
   RateLimitError,
-} from "@shared/errors/upload-errors.js";
+} from "@shared/errors/upload-errors";
 import { logger } from "@shared/logger.js";
 import { RedisClient } from "@infrastructure/cache/redis-types.js";
 

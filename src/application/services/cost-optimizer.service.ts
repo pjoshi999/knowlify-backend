@@ -3,7 +3,7 @@ import { PoolClient } from "pg";
 import { StorageAdapter } from "@infrastructure/adapters/storage.adapter.js";
 import { DeduplicationResult } from "@domain/models/file-hash.model.js";
 import { UploadSession } from "@domain/models/upload-session.model.js";
-import { DatabaseError } from "@shared/errors/upload-errors.js";
+import { DatabaseError } from "@shared/errors/upload-errors";
 import { logger } from "@shared/logger.js";
 
 export interface TieringJobResult {
