@@ -71,6 +71,7 @@
     "@bull-board/ui": "^6.20.3",
     "@supabase/supabase-js": "^2.98.0",
     "adm-zip": "^0.5.16",
+    "axios": "^1.13.6",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.70.1",
     "compression": "^1.8.1",
