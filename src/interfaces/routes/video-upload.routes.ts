@@ -100,7 +100,7 @@ export const createVideoUploadRoutes = (
         // Create upload session
         const session = await sessionManager.createSession({
           instructorId: data.instructorId,
-          courseId: data.courseId,
+          courseId: data.courseId || null, // Allow null if not provided
           fileName: data.fileName,
           fileSize: data.fileSize,
           mimeType: data.mimeType,
@@ -113,7 +113,7 @@ export const createVideoUploadRoutes = (
           contentType: data.mimeType,
           metadata: {
             instructorId: data.instructorId,
-            courseId: data.courseId,
+            courseId: data.courseId || "unassigned", // Use placeholder if not provided
             originalFileName: data.fileName,
             uploadTimestamp: new Date().toISOString(),
           },

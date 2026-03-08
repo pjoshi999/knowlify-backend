@@ -3,7 +3,7 @@ import { z } from "zod";
 // Request Schemas
 export const initiateUploadSchema = z.object({
   instructorId: z.string().uuid(),
-  courseId: z.string().uuid(),
+  courseId: z.string().uuid().optional(), // Optional - can be associated with course later
   fileName: z.string().min(1).max(1024),
   fileSize: z.number().int().positive().max(53687091200), // 50GB max
   mimeType: z.enum(["video/mp4", "video/quicktime", "video/x-msvideo"]),

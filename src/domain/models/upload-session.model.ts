@@ -9,7 +9,7 @@ export type SessionStatus =
 export interface UploadSession {
   sessionId: string;
   instructorId: string;
-  courseId: string;
+  courseId: string | null; // Allow null if video is uploaded before course is created
   fileName: string;
   fileSize: number;
   mimeType: string;
@@ -27,7 +27,7 @@ export interface UploadSession {
 
 export interface CreateUploadSessionParams {
   instructorId: string;
-  courseId: string;
+  courseId: string | null; // Allow null if video is uploaded before course is created
   fileName: string;
   fileSize: number;
   mimeType: string;

@@ -349,12 +349,14 @@ export class S3StorageAdapter implements StorageAdapter {
 // Utility function to generate storage key
 export function generateStorageKey(
   instructorId: string,
-  courseId: string,
+  courseId: string | null,
   fileName: string
 ): string {
   const uuid = crypto.randomUUID();
   const extension = fileName.split(".").pop() || "mp4";
-  return `${instructorId}/${courseId}/${uuid}.${extension}`;
+  // Use "unassigned" as placeholder if courseId is null
+  const coursePath = courseId || "unassigned";
+  return `${instructorId}/${coursePath}/${uuid}.${extension}`;
 }
 
 // Utility function to calculate chunk size and count
