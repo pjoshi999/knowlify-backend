@@ -10,7 +10,7 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import crypto from "crypto";
 import { logger } from "@shared/logger.js";
-import { StorageProviderError } from "@shared/errors/upload-errors";
+import { StorageProviderError } from "@shared/errors/upload-errors.js";
 
 export interface PresignedUrlParams {
   key: string;
