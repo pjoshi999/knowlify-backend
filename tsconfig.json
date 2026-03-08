@@ -2,17 +2,29 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
-    "lib": ["ES2022"],
+    "lib": [
+      "ES2022"
+    ],
     "moduleResolution": "bundler",
     "rootDir": "./src",
     "outDir": "./dist",
     "baseUrl": "./src",
     "paths": {
-      "@domain/*": ["domain/*"],
-      "@application/*": ["application/*"],
-      "@infrastructure/*": ["infrastructure/*"],
-      "@api/*": ["api/*"],
-      "@shared/*": ["shared/*"]
+      "@domain/*": [
+        "domain/*"
+      ],
+      "@application/*": [
+        "application/*"
+      ],
+      "@infrastructure/*": [
+        "infrastructure/*"
+      ],
+      "@api/*": [
+        "api/*"
+      ],
+      "@shared/*": [
+        "shared/*"
+      ]
     },
     "strict": true,
     "noImplicitAny": true,
@@ -39,6 +51,13 @@
     "sourceMap": true,
     "removeComments": true
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ]
 }
