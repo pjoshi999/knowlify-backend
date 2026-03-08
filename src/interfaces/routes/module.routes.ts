@@ -1,9 +1,3 @@
-/**
- * Module Routes
- * 
- * API endpoints for module management
- */
-
 import { Router, Request, Response, NextFunction, RequestHandler } from "express";
 import { ModuleRepository } from "../../infrastructure/repositories/module.repository.js";
 import { LessonRepository } from "../../infrastructure/repositories/lesson.repository.js";
@@ -36,7 +30,7 @@ export const createModuleRoutes = ({
    */
   router.get(
     "/courses/:courseId/modules",
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
         const courseId = req.params['courseId'] as string;
 
@@ -44,12 +38,12 @@ export const createModuleRoutes = ({
 
         const modules = await moduleRepository.getModulesWithLessonsByCourse(courseId);
 
-        return sendSuccess(res, {
+        sendSuccess(res, {
           modules,
         });
       } catch (error) {
         log.error({ error }, "Failed to fetch modules");
-        return next(error);
+        next(error);
       }
     }
   );
@@ -62,7 +56,7 @@ export const createModuleRoutes = ({
     "/courses/:courseId/modules",
     authenticate,
     authorizeInstructor,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
         const courseId = req.params['courseId'] as string;
         const { title, description, order } = req.body;
@@ -79,10 +73,10 @@ export const createModuleRoutes = ({
           order: moduleOrder,
         });
 
-        return sendSuccess(res, { module }, 201);
+        sendSuccess(res, { module }, 201);
       } catch (error) {
         log.error({ error }, "Failed to create module");
-        return next(error);
+        next(error);
       }
     }
   );
@@ -95,7 +89,7 @@ export const createModuleRoutes = ({
     "/modules/:moduleId",
     authenticate,
     authorizeInstructor,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
         const moduleId = req.params['moduleId'] as string;
         const { title, description, order } = req.body;
@@ -108,10 +102,10 @@ export const createModuleRoutes = ({
           order,
         });
 
-        return sendSuccess(res, { module });
+        sendSuccess(res, { module });
       } catch (error) {
         log.error({ error }, "Failed to update module");
-        return next(error);
+        next(error);
       }
     }
   );
@@ -124,7 +118,7 @@ export const createModuleRoutes = ({
     "/modules/:moduleId",
     authenticate,
     authorizeInstructor,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
         const moduleId = req.params['moduleId'] as string;
 
@@ -132,10 +126,10 @@ export const createModuleRoutes = ({
 
         await moduleRepository.deleteModule(moduleId);
 
-        return sendSuccess(res, { message: "Module deleted successfully" });
+        sendSuccess(res, { message: "Module deleted successfully" });
       } catch (error) {
         log.error({ error }, "Failed to delete module");
-        return next(error);
+        next(error);
       }
     }
   );
@@ -148,7 +142,7 @@ export const createModuleRoutes = ({
     "/courses/:courseId/modules/reorder",
     authenticate,
     authorizeInstructor,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
         const courseId = req.params['courseId'] as string;
         const { moduleOrders } = req.body;
@@ -159,10 +153,10 @@ export const createModuleRoutes = ({
 
         const modules = await moduleRepository.getModulesByCourse(courseId);
 
-        return sendSuccess(res, { modules });
+        sendSuccess(res, { modules });
       } catch (error) {
         log.error({ error }, "Failed to reorder modules");
-        return next(error);
+        next(error);
       }
     }
   );
@@ -175,7 +169,7 @@ export const createModuleRoutes = ({
     "/modules/:moduleId/lessons",
     authenticate,
     authorizeInstructor,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
         const moduleId = req.params['moduleId'] as string;
         const { title, description, type, order, assetId, duration } = req.body;
@@ -195,10 +189,10 @@ export const createModuleRoutes = ({
           duration,
         });
 
-        return sendSuccess(res, { lesson }, 201);
+        sendSuccess(res, { lesson }, 201);
       } catch (error) {
         log.error({ error }, "Failed to create lesson");
-        return next(error);
+        next(error);
       }
     }
   );
@@ -211,7 +205,7 @@ export const createModuleRoutes = ({
     "/lessons/:lessonId",
     authenticate,
     authorizeInstructor,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
         const lessonId = req.params['lessonId'] as string;
         const { title, description, type, order, assetId, duration } = req.body;
@@ -227,10 +221,10 @@ export const createModuleRoutes = ({
           duration,
         });
 
-        return sendSuccess(res, { lesson });
+        sendSuccess(res, { lesson });
       } catch (error) {
         log.error({ error }, "Failed to update lesson");
-        return next(error);
+        next(error);
       }
     }
   );
@@ -243,7 +237,7 @@ export const createModuleRoutes = ({
     "/lessons/:lessonId",
     authenticate,
     authorizeInstructor,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
         const lessonId = req.params['lessonId'] as string;
 
@@ -251,10 +245,10 @@ export const createModuleRoutes = ({
 
         await lessonRepository.deleteLesson(lessonId);
 
-        return sendSuccess(res, { message: "Lesson deleted successfully" });
+        sendSuccess(res, { message: "Lesson deleted successfully" });
       } catch (error) {
         log.error({ error }, "Failed to delete lesson");
-        return next(error);
+        next(error);
       }
     }
   );
@@ -267,7 +261,7 @@ export const createModuleRoutes = ({
     "/modules/:moduleId/lessons/reorder",
     authenticate,
     authorizeInstructor,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
         const moduleId = req.params['moduleId'] as string;
         const { lessonOrders } = req.body;
@@ -278,10 +272,10 @@ export const createModuleRoutes = ({
 
         const lessons = await lessonRepository.getLessonsByModule(moduleId);
 
-        return sendSuccess(res, { lessons });
+        sendSuccess(res, { lessons });
       } catch (error) {
         log.error({ error }, "Failed to reorder lessons");
-        return next(error);
+        next(error);
       }
     }
   );
@@ -292,7 +286,7 @@ export const createModuleRoutes = ({
    */
   router.get(
     "/lessons/:lessonId/analysis",
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
         const lessonId = req.params['lessonId'] as string;
 
@@ -301,14 +295,15 @@ export const createModuleRoutes = ({
         const lesson = await lessonRepository.getLessonWithAnalysisById(lessonId);
 
         if (!lesson) {
-          return sendError(res, req, {
+          sendError(res, req, {
             statusCode: 404,
             code: 'NOT_FOUND',
             message: 'Lesson not found',
           });
+          return;
         }
 
-        return sendSuccess(res, {
+        sendSuccess(res, {
           lesson: {
             id: lesson.id,
             title: lesson.title,
@@ -317,7 +312,7 @@ export const createModuleRoutes = ({
         });
       } catch (error) {
         log.error({ error }, "Failed to fetch lesson analysis");
-        return next(error);
+        next(error);
       }
     }
   );
@@ -330,7 +325,7 @@ export const createModuleRoutes = ({
     "/lessons/:lessonId/reanalyze",
     authenticate,
     authorizeInstructor,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
         const lessonId = req.params['lessonId'] as string;
 
@@ -339,19 +334,21 @@ export const createModuleRoutes = ({
         const lesson = await lessonRepository.getLessonWithAnalysisById(lessonId);
 
         if (!lesson) {
-          return sendError(res, req, {
+          sendError(res, req, {
             statusCode: 404,
             code: 'NOT_FOUND',
             message: 'Lesson not found',
           });
+          return;
         }
 
         if (!lesson.assetId) {
-          return sendError(res, req, {
+          sendError(res, req, {
             statusCode: 400,
             code: 'BAD_REQUEST',
             message: 'Lesson has no associated asset',
           });
+          return;
         }
 
         // TODO: Fetch asset details to get URL and type
@@ -370,14 +367,14 @@ export const createModuleRoutes = ({
           },
         });
 
-        return sendSuccess(res, {
+        sendSuccess(res, {
           message: "Re-analysis job enqueued",
           jobId,
           status: "queued",
         });
       } catch (error) {
         log.error({ error }, "Failed to trigger re-analysis");
-        return next(error);
+        next(error);
       }
     }
   );

@@ -69,17 +69,18 @@ export const createUploadRoutes = ({
     authorizeInstructor,
     uploadLimiter,
     upload.array("files", 100), // Max 100 files
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
         const instructorId = req.user!.id;
         const files = req.files as Express.Multer.File[];
 
         if (!files || files.length === 0) {
-          return sendError(res, req, {
+          sendError(res, req, {
             statusCode: 400,
             code: 'BAD_REQUEST',
             message: 'No files uploaded',
           });
+          return;
         }
 
         log.info({ instructorId, fileCount: files.length }, "Processing folder upload");
@@ -108,7 +109,7 @@ export const createUploadRoutes = ({
 
         log.info({ sessionId: session.id, fileCount: files.length }, "Folder upload successful");
 
-        return sendSuccess(res, {
+        sendSuccess(res, {
           sessionId: session.id,
           fileCount: session.fileCount,
           totalSize: session.totalSize,
@@ -117,7 +118,7 @@ export const createUploadRoutes = ({
         }, 201);
       } catch (error) {
         log.error({ error }, "Folder upload failed");
-        return next(error);
+        next(error);
       }
     }
   );
@@ -130,16 +131,17 @@ export const createUploadRoutes = ({
     "/analyze-structure",
     authenticate,
     authorizeInstructor,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
         const { sessionId } = req.body;
 
         if (!sessionId) {
-          return sendError(res, req, {
+          sendError(res, req, {
             statusCode: 400,
             code: 'BAD_REQUEST',
             message: 'Session ID is required',
           });
+          return;
         }
 
         log.info({ sessionId }, "Analyzing folder structure");
@@ -147,29 +149,32 @@ export const createUploadRoutes = ({
         // Get session
         const session = await sessionRepository.getSessionById(sessionId);
         if (!session) {
-          return sendError(res, req, {
+          sendError(res, req, {
             statusCode: 404,
             code: 'NOT_FOUND',
             message: 'Upload session not found',
           });
+          return;
         }
 
         // Check if session is expired
         if (new Date() > session.expiresAt) {
-          return sendError(res, req, {
+          sendError(res, req, {
             statusCode: 410,
             code: 'GONE',
             message: 'Upload session has expired',
           });
+          return;
         }
 
         // Check if instructor owns this session
         if (session.instructorId !== req.user!.id) {
-          return sendError(res, req, {
+          sendError(res, req, {
             statusCode: 403,
             code: 'FORBIDDEN',
             message: 'Unauthorized',
           });
+          return;
         }
 
         // Build file metadata from session
@@ -194,13 +199,13 @@ export const createUploadRoutes = ({
 
         log.info({ sessionId, moduleCount: suggestedStructure.modules.length }, "Structure analysis complete");
 
-        return sendSuccess(res, {
+        sendSuccess(res, {
           sessionId,
           suggestedStructure,
         });
       } catch (error) {
         log.error({ error }, "Structure analysis failed");
-        return next(error);
+        next(error);
       }
     }
   );
@@ -213,17 +218,18 @@ export const createUploadRoutes = ({
     "/create-with-structure",
     authenticate,
     authorizeInstructor,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
         const { sessionId, courseData, structure } = req.body;
         const instructorId = req.user!.id;
 
         if (!sessionId || !courseData || !structure) {
-          return sendError(res, req, {
+          sendError(res, req, {
             statusCode: 400,
             code: 'BAD_REQUEST',
             message: 'Missing required fields',
           });
+          return;
         }
 
         log.info({ sessionId, courseName: courseData.name }, "Creating course with structure");
@@ -231,39 +237,43 @@ export const createUploadRoutes = ({
         // Get session
         const session = await sessionRepository.getSessionById(sessionId);
         if (!session) {
-          return sendError(res, req, {
+          sendError(res, req, {
             statusCode: 404,
             code: 'NOT_FOUND',
             message: 'Upload session not found',
           });
+          return;
         }
 
         // Check if session is expired
         if (new Date() > session.expiresAt) {
-          return sendError(res, req, {
+          sendError(res, req, {
             statusCode: 410,
             code: 'GONE',
             message: 'Upload session has expired',
           });
+          return;
         }
 
         // Check if instructor owns this session
         if (session.instructorId !== instructorId) {
-          return sendError(res, req, {
+          sendError(res, req, {
             statusCode: 403,
             code: 'FORBIDDEN',
             message: 'Unauthorized',
           });
+          return;
         }
 
         // Check course name uniqueness (simplified - just check by instructor)
         const existingCourses = await courseRepository.findByInstructor(instructorId);
         if (existingCourses.some(c => c.name === courseData.name)) {
-          return sendError(res, req, {
+          sendError(res, req, {
             statusCode: 409,
             code: 'CONFLICT',
             message: 'Course with this name already exists',
           });
+          return;
         }
 
         // Create course
@@ -356,7 +366,7 @@ export const createUploadRoutes = ({
         // Delete temporary files (would be done in background)
         // await folderUploadService.deleteTemporaryFiles(session.tempStoragePaths);
 
-        return sendSuccess(res, {
+        sendSuccess(res, {
           course: {
             id: course.id,
             name: course.name,
@@ -368,7 +378,7 @@ export const createUploadRoutes = ({
         }, 201);
       } catch (error) {
         log.error({ error }, "Failed to create course with structure");
-        return next(error);
+        next(error);
       }
     }
   );
