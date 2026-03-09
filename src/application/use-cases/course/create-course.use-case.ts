@@ -33,15 +33,22 @@ export const createCreateCourseUseCase = (
       throw new ValidationError(priceError);
     }
 
-    // Generate URL slug
-    const urlSlug = generateUrlSlug(input.name);
+    // Generate URL slug with uniqueness guarantee
+    let urlSlug = generateUrlSlug(input.name);
+    let existingCourse = await courseRepository.findBySlug(urlSlug);
 
-    // Check if slug already exists
-    const existingCourse = await courseRepository.findBySlug(urlSlug);
+    // If slug exists, append a timestamp to make it unique
     if (existingCourse) {
-      throw new ValidationError(
-        "A course with this name already exists. Please choose a different name."
-      );
+      const timestamp = Date.now();
+      urlSlug = `${urlSlug}-${timestamp}`;
+
+      // Double-check the new slug doesn't exist (extremely unlikely)
+      existingCourse = await courseRepository.findBySlug(urlSlug);
+      if (existingCourse) {
+        throw new ValidationError(
+          "Failed to generate unique course identifier. Please try again."
+        );
+      }
     }
 
     // Create course with default values

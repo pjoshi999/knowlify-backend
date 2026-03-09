@@ -5,6 +5,7 @@ import {
   NextFunction,
   RequestHandler,
 } from "express";
+import multer from "multer";
 import { CourseRepositoryPort } from "../../application/ports/course.repository.port.js";
 import { CachePort } from "../../application/ports/cache.port.js";
 import { createCreateCourseUseCase } from "../../application/use-cases/course/create-course.use-case.js";
@@ -28,12 +29,29 @@ import { createModuleLogger } from "../../shared/logger.js";
 
 const log = createModuleLogger("course-routes");
 
+// Configure multer for memory storage
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit for thumbnails
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept images only
+    if (!file.mimetype.startsWith('image/')) {
+      cb(new Error('Only image files are allowed for thumbnails'));
+      return;
+    }
+    cb(null, true);
+  },
+});
+
 interface CourseRoutesConfig {
   courseRepository: CourseRepositoryPort;
   cache: CachePort;
   authenticate: RequestHandler;
   authorizeInstructor: RequestHandler;
   enrollmentRepository?: any; // Add enrollment repository
+  storageAdapter?: any; // Add storage adapter for file uploads
 }
 
 export const createCourseRoutes = ({
@@ -42,6 +60,7 @@ export const createCourseRoutes = ({
   authenticate,
   authorizeInstructor,
   enrollmentRepository,
+  storageAdapter,
 }: CourseRoutesConfig): Router => {
   const router = Router();
 
@@ -321,6 +340,7 @@ export const createCourseRoutes = ({
     "/",
     authenticate,
     authorizeInstructor,
+    upload.single('thumbnail'),
     invalidateCourseCache,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
@@ -328,15 +348,32 @@ export const createCourseRoutes = ({
           CreateCourseInput,
           "instructorId"
         >;
+        
+        let thumbnailUrl: string | undefined = body.thumbnailUrl;
+        
+        // If thumbnail file is uploaded, upload to S3
+        if (req.file && storageAdapter) {
+          const fileName = `thumbnails/${Date.now()}-${req.file.originalname}`;
+          const uploadResult = await storageAdapter.uploadFile(
+            req.file.buffer,
+            fileName,
+            req.file.mimetype
+          );
+          thumbnailUrl = uploadResult.url;
+          log.info({ fileName, url: thumbnailUrl }, "Thumbnail uploaded to S3");
+        }
+        
         const input: CreateCourseInput = {
           ...body,
           instructorId: req.user!.id,
+          thumbnailUrl,
         };
 
         log.info(
           {
             name: input.name,
             hasManifest: !!input.manifest,
+            hasThumbnail: !!thumbnailUrl,
             moduleCount: input.manifest?.modules?.length || 0,
           },
           "Creating course"

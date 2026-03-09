@@ -193,9 +193,9 @@ export class S3StorageAdapter implements StorageAdapter {
         key: params.key,
         uploadId: params.uploadId,
         totalParts: normalizedParts.length,
-        parts: normalizedParts.map(p => ({ 
-          partNumber: p.partNumber, 
-          etagLength: p.etag.length, 
+        parts: normalizedParts.map((p) => ({
+          partNumber: p.partNumber,
+          etagLength: p.etag.length,
           etagSample: p.etag.substring(0, 20),
           hasQuotes: p.etag.startsWith('"') && p.etag.endsWith('"'),
         })),
@@ -213,7 +213,9 @@ export class S3StorageAdapter implements StorageAdapter {
         },
       });
 
-      const result = await this.executeWithRetry(() => this.client.send(command));
+      const result = await this.executeWithRetry(() =>
+        this.client.send(command)
+      );
 
       logger.info({
         message: "Completed multipart upload successfully",
