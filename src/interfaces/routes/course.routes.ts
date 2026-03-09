@@ -363,10 +363,16 @@ export const createCourseRoutes = ({
           log.info({ fileName, url: thumbnailUrl }, "Thumbnail uploaded to S3");
         }
 
+        // Parse priceAmount as number if it's a string (from FormData)
+        const priceAmount = typeof body.priceAmount === 'string' 
+          ? parseInt(body.priceAmount, 10) 
+          : body.priceAmount;
+
         const input: CreateCourseInput = {
           ...body,
           instructorId: req.user!.id,
           thumbnailUrl,
+          priceAmount,
         };
 
         log.info(
