@@ -174,12 +174,26 @@ export class S3StorageAdapter implements StorageAdapter {
     params: CompleteMultipartParams
   ): Promise<void> {
     try {
+      // Normalize ETags - ensure they have quotes as S3 expects
+      const normalizedParts = params.parts.map((part) => {
+        let etag = part.etag.trim();
+        // Remove existing quotes if present
+        if (etag.startsWith('"') && etag.endsWith('"')) {
+          etag = etag.slice(1, -1);
+        }
+        // Add quotes back - S3 expects ETags with quotes
+        return {
+          partNumber: part.partNumber,
+          etag: `"${etag}"`,
+        };
+      });
+
       logger.info({
         message: "Attempting to complete multipart upload",
         key: params.key,
         uploadId: params.uploadId,
-        totalParts: params.parts.length,
-        parts: params.parts.map(p => ({ 
+        totalParts: normalizedParts.length,
+        parts: normalizedParts.map(p => ({ 
           partNumber: p.partNumber, 
           etagLength: p.etag.length, 
           etagSample: p.etag.substring(0, 20),
@@ -192,7 +206,7 @@ export class S3StorageAdapter implements StorageAdapter {
         Key: params.key,
         UploadId: params.uploadId,
         MultipartUpload: {
-          Parts: params.parts.map((part) => ({
+          Parts: normalizedParts.map((part) => ({
             PartNumber: part.partNumber,
             ETag: part.etag,
           })),
@@ -205,7 +219,7 @@ export class S3StorageAdapter implements StorageAdapter {
         message: "Completed multipart upload successfully",
         key: params.key,
         uploadId: params.uploadId,
-        totalParts: params.parts.length,
+        totalParts: normalizedParts.length,
         location: result.Location,
         etag: result.ETag,
       });
