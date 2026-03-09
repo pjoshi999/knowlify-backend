@@ -35,10 +35,10 @@ const upload = multer({
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit for thumbnails
   },
-  fileFilter: (req, file, cb) => {
+  fileFilter: (_req, file, cb) => {
     // Accept images only
-    if (!file.mimetype.startsWith('image/')) {
-      cb(new Error('Only image files are allowed for thumbnails'));
+    if (!file.mimetype.startsWith("image/")) {
+      cb(new Error("Only image files are allowed for thumbnails"));
       return;
     }
     cb(null, true);
@@ -340,7 +340,7 @@ export const createCourseRoutes = ({
     "/",
     authenticate,
     authorizeInstructor,
-    upload.single('thumbnail'),
+    upload.single("thumbnail"),
     invalidateCourseCache,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
@@ -348,9 +348,9 @@ export const createCourseRoutes = ({
           CreateCourseInput,
           "instructorId"
         >;
-        
+
         let thumbnailUrl: string | undefined = body.thumbnailUrl;
-        
+
         // If thumbnail file is uploaded, upload to S3
         if (req.file && storageAdapter) {
           const fileName = `thumbnails/${Date.now()}-${req.file.originalname}`;
@@ -362,7 +362,7 @@ export const createCourseRoutes = ({
           thumbnailUrl = uploadResult.url;
           log.info({ fileName, url: thumbnailUrl }, "Thumbnail uploaded to S3");
         }
-        
+
         const input: CreateCourseInput = {
           ...body,
           instructorId: req.user!.id,
