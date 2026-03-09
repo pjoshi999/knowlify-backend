@@ -36,7 +36,6 @@ export class RateLimiter {
     free: 500,
   };
   private readonly TOKEN_BUCKET_REFILL_GB_PER_HOUR = 10;
-  private readonly PRESIGNED_URL_LIMIT = 100;
 
   constructor(private redisClient: RedisClient) {}
 
@@ -249,47 +248,6 @@ export class RateLimiter {
 
       logger.error({
         message: "Failed to check API rate limit",
-        error,
-        instructorId,
-      });
-      return true; // Fail open
-    }
-  }
-
-  async checkPresignedUrlLimit(instructorId: string): Promise<boolean> {
-    try {
-      const currentHour = new Date().toISOString().slice(0, 13);
-      const urlLimitKey = `upload:presigned:${instructorId}:${currentHour}`;
-
-      const urlCount = parseInt(
-        (await this.redisClient.get(urlLimitKey)) || "0",
-        10
-      );
-
-      if (urlCount >= this.PRESIGNED_URL_LIMIT) {
-        const secondsUntilNextHour =
-          3600 - (Math.floor(Date.now() / 1000) % 3600);
-        throw new RateLimitError(
-          `Pre-signed URL generation limit of ${this.PRESIGNED_URL_LIMIT} per hour exceeded`,
-          secondsUntilNextHour,
-          { urlCount, limit: this.PRESIGNED_URL_LIMIT }
-        );
-      }
-
-      // Increment URL count
-      await this.redisClient.incr(urlLimitKey);
-
-      // Set expiry to 1 hour
-      await this.redisClient.expire(urlLimitKey, 3600);
-
-      return true;
-    } catch (error) {
-      if (error instanceof RateLimitError) {
-        throw error;
-      }
-
-      logger.error({
-        message: "Failed to check pre-signed URL limit",
         error,
         instructorId,
       });

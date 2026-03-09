@@ -112,8 +112,7 @@ export const createVideoUploadRoutes = (
           (asset) =>
             typeof asset.metadata === "object" &&
             asset.metadata !== null &&
-            (asset.metadata)["uploadSessionId"] ===
-              sessionId
+            asset.metadata["uploadSessionId"] === sessionId
         );
         if (existingAsset) {
           sendSuccess(res, { asset: existingAsset });
@@ -178,7 +177,6 @@ export const createVideoUploadRoutes = (
 
         // Check rate limits
         await rateLimiter.checkApiRateLimit(instructorId, instructorTier);
-        await rateLimiter.checkPresignedUrlLimit(instructorId);
 
         const canUpload = await rateLimiter.canStartUpload(
           instructorId,
