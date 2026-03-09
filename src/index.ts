@@ -31,6 +31,10 @@ import { createOpenAIService } from "./infrastructure/ai/openai.service.js";
 import { createBullMQAdapter } from "./infrastructure/queue/bullmq.adapter.js";
 import { createChatRepository } from "./infrastructure/repositories/chat.repository.js";
 import { createChatRoutes } from "./interfaces/routes/chat.routes.js";
+import { createModuleRoutes } from "./interfaces/routes/module.routes.js";
+import { ModuleRepository } from "./infrastructure/repositories/module.repository.js";
+import { LessonRepository } from "./infrastructure/repositories/lesson.repository.js";
+import { BackgroundJobService } from "./infrastructure/services/background-job.service.js";
 import {
   createAuthMiddleware,
   createRoleMiddleware,
@@ -148,21 +152,6 @@ const startServer = async (): Promise<void> => {
     initializeRateLimiters();
 
     const userRepository = createUserRepository();
-    const courseRepository = createCourseRepository();
-    const enrollmentRepository = createEnrollmentRepository();
-    const paymentRepository = createPaymentRepository();
-    const reviewRepository = createReviewRepository();
-    const chatRepository = createChatRepository(
-      (await import("./infrastructure/database/pool.js")).getDatabasePool()
-    );
-
-    const authService = createJWTAuthService();
-    const stripeService = createStripeService();
-    const s3Service = createS3Service();
-    const cacheService = createCacheAdapter();
-    const aiService = createOpenAIService(config.openai.apiKey);
-    const queueService = createBullMQAdapter();
-
     // Initialize video upload system services
     const pool = (
       await import("./infrastructure/database/pool.js")
@@ -170,6 +159,24 @@ const startServer = async (): Promise<void> => {
     const redisClient = (
       await import("./infrastructure/cache/redis.js")
     ).getRedisClient();
+
+    const courseRepository = createCourseRepository();
+    const enrollmentRepository = createEnrollmentRepository();
+    const paymentRepository = createPaymentRepository();
+    const reviewRepository = createReviewRepository();
+    const chatRepository = createChatRepository(
+      (await import("./infrastructure/database/pool.js")).getDatabasePool()
+    );
+    const moduleRepository = new ModuleRepository();
+    const lessonRepository = new LessonRepository();
+    const backgroundJobService = new BackgroundJobService();
+
+    const authService = createJWTAuthService();
+    const stripeService = createStripeService();
+    const s3Service = createS3Service();
+    const cacheService = createCacheAdapter();
+    const aiService = createOpenAIService(config.openai.apiKey);
+    const queueService = createBullMQAdapter();
 
     const sqsClient = new SQSClient({
       region: config.aws.region,
@@ -265,6 +272,14 @@ const startServer = async (): Promise<void> => {
       queueService,
     });
 
+    const moduleRoutes = createModuleRoutes({
+      moduleRepository,
+      lessonRepository,
+      backgroundJobService,
+      authenticate,
+      authorizeInstructor,
+    });
+
     const videoUploadRoutes = createVideoUploadRoutes({
       sessionManager,
       chunkManager,
@@ -328,6 +343,7 @@ const startServer = async (): Promise<void> => {
       instructorRoutes,
       searchRoutes,
       chatRoutes,
+      moduleRoutes,
       videoUploadRoutes,
       analyticsRoutes,
       healthRoutes,

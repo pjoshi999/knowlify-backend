@@ -24,6 +24,7 @@ interface ServerConfig {
   instructorRoutes: Router;
   searchRoutes: Router;
   chatRoutes: Router;
+  moduleRoutes: Router;
   videoUploadRoutes: Router;
   analyticsRoutes: Router;
   healthRoutes: Router;
@@ -42,6 +43,7 @@ export const createServer = ({
   instructorRoutes,
   searchRoutes,
   chatRoutes,
+  moduleRoutes,
   videoUploadRoutes,
   analyticsRoutes,
   healthRoutes,
@@ -127,6 +129,7 @@ export const createServer = ({
 
   app.use("/api/auth", authRoutes);
   app.use("/api/courses", courseRoutes);
+  app.use("/api", moduleRoutes); // Module routes include /courses/:courseId/modules
   app.use("/api/enrollments", enrollmentRoutes);
   app.use("/api/reviews", reviewRoutes);
   app.use("/api/payments", paymentRoutes);
