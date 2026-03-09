@@ -179,7 +179,12 @@ export class S3StorageAdapter implements StorageAdapter {
         key: params.key,
         uploadId: params.uploadId,
         totalParts: params.parts.length,
-        parts: params.parts.map(p => ({ partNumber: p.partNumber, etagLength: p.etag.length, etagSample: p.etag.substring(0, 20) })),
+        parts: params.parts.map(p => ({ 
+          partNumber: p.partNumber, 
+          etagLength: p.etag.length, 
+          etagSample: p.etag.substring(0, 20),
+          hasQuotes: p.etag.startsWith('"') && p.etag.endsWith('"'),
+        })),
       });
 
       const command = new CompleteMultipartUploadCommand({
@@ -194,18 +199,26 @@ export class S3StorageAdapter implements StorageAdapter {
         },
       });
 
-      await this.executeWithRetry(() => this.client.send(command));
+      const result = await this.executeWithRetry(() => this.client.send(command));
 
       logger.info({
-        message: "Completed multipart upload",
+        message: "Completed multipart upload successfully",
         key: params.key,
         uploadId: params.uploadId,
         totalParts: params.parts.length,
+        location: result.Location,
+        etag: result.ETag,
       });
-    } catch (error) {
+    } catch (error: any) {
       logger.error({
         message: "Failed to complete multipart upload",
-        error,
+        error: {
+          name: error?.name,
+          message: error?.message,
+          code: error?.Code || error?.code,
+          statusCode: error?.$metadata?.httpStatusCode,
+          requestId: error?.$metadata?.requestId,
+        },
         params: {
           key: params.key,
           uploadId: params.uploadId,
@@ -215,6 +228,8 @@ export class S3StorageAdapter implements StorageAdapter {
       });
       throw new StorageProviderError("Failed to complete multipart upload", {
         originalError: error instanceof Error ? error.message : String(error),
+        awsError: error?.Code || error?.code,
+        statusCode: error?.$metadata?.httpStatusCode,
       });
     }
   }
