@@ -235,7 +235,7 @@ const startServer = async (): Promise<void> => {
       authenticate,
       authorizeInstructor,
       enrollmentRepository,
-      storageAdapter,
+      storageAdapter: s3Service,
     });
     const enrollmentRoutes = createEnrollmentRoutes({
       enrollmentRepository,
