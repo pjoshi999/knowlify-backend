@@ -354,11 +354,11 @@ export const createCourseRoutes = ({
         // If thumbnail file is uploaded, upload to S3
         if (req.file && storageAdapter) {
           const fileName = `thumbnails/${Date.now()}-${req.file.originalname}`;
-          const uploadResult = await storageAdapter.uploadFile(
-            req.file.buffer,
+          const uploadResult = await storageAdapter.uploadFile({
+            file: req.file.buffer,
             fileName,
-            req.file.mimetype
-          );
+            mimeType: req.file.mimetype,
+          });
           thumbnailUrl = uploadResult.url;
           log.info({ fileName, url: thumbnailUrl }, "Thumbnail uploaded to S3");
         }
