@@ -178,21 +178,6 @@ export const createVideoUploadRoutes = (
         // Check rate limits
         await rateLimiter.checkApiRateLimit(instructorId, instructorTier);
 
-        const canUpload = await rateLimiter.canStartUpload(
-          instructorId,
-          instructorTier
-        );
-
-        if (!canUpload.allowed) {
-          sendError(res, req, {
-            statusCode: 429,
-            code: "RATE_LIMIT_EXCEEDED",
-            message: canUpload.reason || "Rate limit exceeded",
-            details: { retryAfter: canUpload.retryAfter },
-          });
-          return;
-        }
-
         // Check daily quota
         await rateLimiter.checkDailyQuota(
           instructorId,
