@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { AnalyticsService } from "../../application/services/analytics.service";
-import { logger } from "../../shared/logger";
+import { logger } from "@shared/logger";
 
 export function createAnalyticsRoutes(
   analyticsService: AnalyticsService

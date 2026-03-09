@@ -5,26 +5,28 @@ import {
   NextFunction,
   RequestHandler,
 } from "express";
-import { SessionStateManager } from "@application/services/session-state-manager.service.js";
-import { ChunkManager } from "@application/services/chunk-manager.service.js";
+import { SessionStateManager } from "../../application/services/session-state-manager.service.js";
+import { ChunkManager } from "../../application/services/chunk-manager.service.js";
 import {
   RateLimiter,
   InstructorTier,
-} from "@application/services/rate-limiter.service.js";
-import { UploadScheduler } from "@application/services/upload-scheduler.service.js";
-import { StorageAdapter } from "@infrastructure/adapters/storage.adapter.js";
+} from "../../application/services/rate-limiter.service.js";
+import { UploadScheduler } from "../../application/services/upload-scheduler.service.js";
+import { StorageAdapter } from "../../infrastructure/adapters/storage.adapter.js";
+import { CourseRepositoryPort } from "../../application/ports/course.repository.port.js";
 import {
   initiateUploadSchema,
   chunkCompletionSchema,
   listUploadsSchema,
-} from "@api/schemas/upload.schema.js";
+} from "../../api/schemas/upload.schema.js";
 import {
   ValidationError,
   SessionNotFoundError,
   UploadError,
-} from "@shared/errors/upload-errors.js";
+} from "../../shared/errors/upload-errors.js";
 import { sendSuccess, sendError } from "../utils/response.js";
-import { logger } from "@shared/logger.js";
+import { logger } from "../../shared/logger.js";
+import { config as appConfig } from "../../shared/config.js";
 
 interface VideoUploadRoutesConfig {
   sessionManager: SessionStateManager;
@@ -32,6 +34,7 @@ interface VideoUploadRoutesConfig {
   rateLimiter: RateLimiter;
   scheduler: UploadScheduler;
   storageAdapter: StorageAdapter;
+  courseRepository: CourseRepositoryPort;
   authenticate: RequestHandler;
   requireRole: (role: string) => RequestHandler;
 }
@@ -46,11 +49,110 @@ export const createVideoUploadRoutes = (
     rateLimiter,
     scheduler,
     storageAdapter,
+    courseRepository,
     authenticate,
     requireRole,
   } = config;
 
   // POST /api/video-uploads/initiate - Initiate multipart upload
+  // POST /api/video-uploads/:sessionId/create-asset - Create course asset from upload
+  router.post(
+    "/:sessionId/create-asset",
+    authenticate,
+    requireRole("INSTRUCTOR"),
+    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+      try {
+        const sessionId = req.params["sessionId"] as string;
+        const { courseId, title, duration } = req.body as {
+          courseId?: string;
+          title?: string;
+          duration?: number;
+        };
+
+        if (!courseId) {
+          throw new ValidationError("courseId is required");
+        }
+
+        const session = await sessionManager.getSession(sessionId);
+        if (!session) {
+          throw new SessionNotFoundError(sessionId);
+        }
+
+        if (session.instructorId !== req.user!.id) {
+          sendError(res, req, {
+            statusCode: 403,
+            code: "FORBIDDEN",
+            message: "You do not have access to this upload session",
+          });
+          return;
+        }
+
+        const course = await courseRepository.findById(courseId);
+        if (!course) {
+          sendError(res, req, {
+            statusCode: 404,
+            code: "NOT_FOUND",
+            message: "Course not found",
+          });
+          return;
+        }
+
+        if (course.instructorId !== req.user!.id) {
+          sendError(res, req, {
+            statusCode: 403,
+            code: "FORBIDDEN",
+            message: "You can only attach assets to your own course",
+          });
+          return;
+        }
+
+        // Idempotency: return existing asset if this upload session is already attached.
+        const existingAssets = await courseRepository.findAssets(courseId);
+        const existingAsset = existingAssets.find(
+          (asset) =>
+            typeof asset.metadata === "object" &&
+            asset.metadata !== null &&
+            (asset.metadata)["uploadSessionId"] ===
+              sessionId
+        );
+        if (existingAsset) {
+          sendSuccess(res, { asset: existingAsset });
+          return;
+        }
+
+        const mimeType = session.mimeType.toLowerCase();
+        const assetType = mimeType.startsWith("video/")
+          ? "VIDEO"
+          : mimeType === "application/pdf"
+            ? "PDF"
+            : mimeType.startsWith("image/")
+              ? "OTHER"
+              : "NOTE";
+
+        const storagePath = `https://${appConfig.aws.s3BucketName}.s3.${appConfig.aws.region}.amazonaws.com/${session.storageKey}`;
+
+        const asset = await courseRepository.createAsset({
+          courseId,
+          assetType,
+          fileName: title || session.fileName,
+          fileSize: Number(session.fileSize),
+          storagePath,
+          mimeType: session.mimeType,
+          duration: typeof duration === "number" ? duration : undefined,
+          metadata: {
+            uploadSessionId: sessionId,
+            source: "video-upload",
+            originalFileName: session.fileName,
+          },
+        });
+
+        sendSuccess(res, { asset }, 201);
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
   router.post(
     "/initiate",
     authenticate,
@@ -102,7 +204,7 @@ export const createVideoUploadRoutes = (
 
         // Create upload session
         const session = await sessionManager.createSession({
-          instructorId: instructorId,
+          instructorId,
           courseId: data.courseId || null, // Allow null if not provided
           fileName: data.fileName,
           fileSize: data.fileSize,
@@ -115,7 +217,7 @@ export const createVideoUploadRoutes = (
           key: session.storageKey,
           contentType: data.mimeType,
           metadata: {
-            instructorId: instructorId,
+            instructorId,
             courseId: data.courseId || "unassigned", // Use placeholder if not provided
             originalFileName: data.fileName,
             uploadTimestamp: new Date().toISOString(),
@@ -128,7 +230,7 @@ export const createVideoUploadRoutes = (
         // Schedule upload
         const scheduleResult = await scheduler.scheduleUpload({
           sessionId: session.sessionId,
-          instructorId: instructorId,
+          instructorId,
           instructorTier,
           fileSize: data.fileSize,
           coursePublished: false, // TODO: Check if course is published
@@ -255,7 +357,7 @@ export const createVideoUploadRoutes = (
               await import("../../infrastructure/queues/video-analysis.queue.js");
             await enqueueVideoAnalysis({
               sessionId: session.sessionId,
-              videoKey: session.storageKey!,
+              videoKey: session.storageKey,
               instructorId: session.instructorId,
               fileName: session.fileName,
             });

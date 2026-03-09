@@ -133,6 +133,14 @@ export class ChunkManager {
         );
       }
 
+      logger.info({
+        message: "Preparing to finalize upload",
+        sessionId: session.sessionId,
+        totalChunks: session.totalChunks,
+        retrievedParts: parts.length,
+        sampleEtag: parts[0]?.etag,
+      });
+
       // Complete multipart upload in S3
       await this.storageAdapter.completeMultipartUpload({
         uploadId: session.uploadId,
@@ -151,6 +159,7 @@ export class ChunkManager {
         message: "Failed to finalize upload",
         error,
         sessionId: session.sessionId,
+        errorDetails: error instanceof Error ? error.message : String(error),
       });
       throw new DatabaseError("Failed to finalize upload", {
         originalError: error instanceof Error ? error.message : String(error),

@@ -271,6 +271,7 @@ const startServer = async (): Promise<void> => {
       rateLimiter,
       scheduler,
       storageAdapter,
+      courseRepository,
       authenticate,
       requireRole,
     });

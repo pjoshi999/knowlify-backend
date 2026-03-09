@@ -174,6 +174,14 @@ export class S3StorageAdapter implements StorageAdapter {
     params: CompleteMultipartParams
   ): Promise<void> {
     try {
+      logger.info({
+        message: "Attempting to complete multipart upload",
+        key: params.key,
+        uploadId: params.uploadId,
+        totalParts: params.parts.length,
+        parts: params.parts.map(p => ({ partNumber: p.partNumber, etagLength: p.etag.length, etagSample: p.etag.substring(0, 20) })),
+      });
+
       const command = new CompleteMultipartUploadCommand({
         Bucket: this.bucket,
         Key: params.key,
@@ -198,7 +206,12 @@ export class S3StorageAdapter implements StorageAdapter {
       logger.error({
         message: "Failed to complete multipart upload",
         error,
-        params,
+        params: {
+          key: params.key,
+          uploadId: params.uploadId,
+          totalParts: params.parts.length,
+          parts: params.parts,
+        },
       });
       throw new StorageProviderError("Failed to complete multipart upload", {
         originalError: error instanceof Error ? error.message : String(error),

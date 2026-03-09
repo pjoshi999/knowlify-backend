@@ -1,11 +1,11 @@
 import { Router, Request, Response, NextFunction } from "express";
-import { TranscodingJobPublisher } from "@application/services/transcoding-job-publisher.service.js";
+import { TranscodingJobPublisher } from "../../application/services/transcoding-job-publisher.service.js";
 import {
   TranscodingResult,
   TranscodingFailure,
-} from "@domain/models/transcoding-job.model.js";
+} from "../../domain/models/transcoding-job.model.js";
 import { sendSuccess, sendError } from "../utils/response.js";
-import { logger } from "@shared/logger.js";
+import { logger } from "../../shared/logger.js";
 
 interface TranscodingRoutesConfig {
   transcodingPublisher: TranscodingJobPublisher;
