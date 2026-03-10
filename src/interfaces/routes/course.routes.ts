@@ -143,13 +143,18 @@ export const createCourseRoutes = ({
 
   // Optional authentication middleware - doesn't fail if no token
   const optionalAuth: RequestHandler = (req: Request, res: Response, next: NextFunction) => {
-    // Try to authenticate, but don't fail if no token
-    if (req.headers.authorization) {
-      authenticate(req, res, () => {
-        // Continue even if authentication fails
+    // Only try to authenticate if there's an authorization header
+    if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
+      authenticate(req, res, (err) => {
+        // Continue regardless of authentication result
+        // If authentication fails, req.user will remain undefined
+        if (err) {
+          log.warn({ error: err.message }, "Optional authentication failed, continuing without user");
+        }
         next();
       });
     } else {
+      // No authorization header, continue without setting req.user
       next();
     }
   };
@@ -167,6 +172,13 @@ export const createCourseRoutes = ({
         let isEnrolled = false;
         let progress = 0;
         let enrollmentId: string | undefined;
+        
+        log.info({ 
+          userId: req.user?.id, 
+          hasUser: !!req.user, 
+          hasAuthHeader: !!req.headers.authorization,
+          courseId 
+        }, "Checking enrollment status");
         
         if (req.user && enrollmentRepository) {
           try {
@@ -198,6 +210,14 @@ export const createCourseRoutes = ({
             log.warn({ userId: req.user.id, courseId, error }, "Failed to check enrollment status");
           }
         }
+        
+        log.info({ 
+          userId: req.user?.id, 
+          isEnrolled, 
+          progress, 
+          enrollmentId,
+          courseId 
+        }, "Enrollment check complete");
         
         sendSuccess(res, {
           ...course,
