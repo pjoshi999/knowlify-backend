@@ -59,7 +59,8 @@ async function deleteInvalidEnrollments() {
     `;
 
     const identifyResult = await query(identifyQuery);
-    const invalidEnrollments: InvalidEnrollment[] = identifyResult.rows;
+    const invalidEnrollments: InvalidEnrollment[] =
+      identifyResult.rows as InvalidEnrollment[];
 
     console.log(`\n📊 Pre-Deletion Analysis:`);
     console.log(
@@ -135,7 +136,9 @@ async function deleteInvalidEnrollments() {
     `;
 
     const verifyResult = await query(verifyQuery);
-    const remainingInvalid = parseInt(verifyResult.rows[0].remaining_invalid);
+    const remainingInvalid = parseInt(
+      verifyResult.rows[0]?.remaining_invalid || "0"
+    );
 
     if (remainingInvalid === 0) {
       console.log(
@@ -160,8 +163,8 @@ async function deleteInvalidEnrollments() {
     const stats = statsResult.rows[0];
 
     console.log("📊 Final Statistics:");
-    console.log(`   Total enrollments: ${stats.total_enrollments}`);
-    console.log(`   Valid enrollments: ${stats.valid_enrollments}`);
+    console.log(`   Total enrollments: ${stats?.total_enrollments || 0}`);
+    console.log(`   Valid enrollments: ${stats?.valid_enrollments || 0}`);
     console.log(`   Invalid enrollments: ${remainingInvalid}\n`);
 
     // Save deletion log
@@ -172,8 +175,8 @@ async function deleteInvalidEnrollments() {
       deletedCount,
       remainingInvalid,
       finalStats: {
-        totalEnrollments: stats.total_enrollments,
-        validEnrollments: stats.valid_enrollments,
+        totalEnrollments: stats?.total_enrollments || 0,
+        validEnrollments: stats?.valid_enrollments || 0,
       },
       snapshotFile,
     };

@@ -141,13 +141,70 @@ export const createCourseRoutes = ({
     }
   );
 
+  // Optional authentication middleware - doesn't fail if no token
+  const optionalAuth: RequestHandler = (req: Request, res: Response, next: NextFunction) => {
+    // Try to authenticate, but don't fail if no token
+    if (req.headers.authorization) {
+      authenticate(req, res, () => {
+        // Continue even if authentication fails
+        next();
+      });
+    } else {
+      next();
+    }
+  };
+
   router.get(
     "/:id",
+    optionalAuth,
     cacheCourse,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const course = await getCourse(req.params["id"] as string);
-        sendSuccess(res, course);
+        const courseId = req.params["id"] as string;
+        const course = await getCourse(courseId);
+        
+        // Check enrollment status if user is authenticated
+        let isEnrolled = false;
+        let progress = 0;
+        let enrollmentId: string | undefined;
+        
+        if (req.user && enrollmentRepository) {
+          try {
+            const enrollment = await enrollmentRepository.findByStudentAndCourse(
+              req.user.id,
+              courseId
+            );
+            
+            if (enrollment) {
+              isEnrolled = true;
+              enrollmentId = enrollment.id;
+              
+              // Calculate progress from completed lessons
+              const manifest = course.manifest as any;
+              if (manifest?.modules && enrollment.progress) {
+                const totalLessons = manifest.modules.reduce(
+                  (sum: number, module: any) => sum + (module.lessons?.length || 0),
+                  0
+                );
+                
+                const completedLessons = enrollment.progress.completedLessons?.length || 0;
+                
+                if (totalLessons > 0) {
+                  progress = Math.round((completedLessons / totalLessons) * 100);
+                }
+              }
+            }
+          } catch (error) {
+            log.warn({ userId: req.user.id, courseId, error }, "Failed to check enrollment status");
+          }
+        }
+        
+        sendSuccess(res, {
+          ...course,
+          isEnrolled,
+          progress,
+          enrollmentId,
+        });
       } catch (error) {
         next(error);
       }
@@ -364,9 +421,10 @@ export const createCourseRoutes = ({
         }
 
         // Parse priceAmount as number if it's a string (from FormData)
-        const priceAmount = typeof body.priceAmount === 'string' 
-          ? parseInt(body.priceAmount, 10) 
-          : body.priceAmount;
+        const priceAmount =
+          typeof body.priceAmount === "string"
+            ? parseInt(body.priceAmount, 10)
+            : body.priceAmount;
 
         const input: CreateCourseInput = {
           ...body,

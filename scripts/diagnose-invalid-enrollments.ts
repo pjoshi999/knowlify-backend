@@ -43,7 +43,8 @@ async function diagnoseInvalidEnrollments() {
     `;
 
     const result = await query(invalidEnrollmentsQuery);
-    const invalidEnrollments: InvalidEnrollment[] = result.rows;
+    const invalidEnrollments: InvalidEnrollment[] =
+      result.rows as InvalidEnrollment[];
 
     console.log(`\n📊 Results:`);
     console.log(

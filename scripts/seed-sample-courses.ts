@@ -710,7 +710,7 @@ async function seedCourses() {
     );
 
     if (existingInstructor.rows.length > 0) {
-      instructorId = existingInstructor.rows[0].id;
+      instructorId = existingInstructor.rows[0]?.id;
       console.log(`✓ Using existing instructor: ${instructorId}`);
     } else {
       const newInstructor = await query(
@@ -724,7 +724,7 @@ async function seedCourses() {
           "sample_password_hash",
         ]
       );
-      instructorId = newInstructor.rows[0].id;
+      instructorId = newInstructor.rows[0]?.id;
       console.log(`✓ Created instructor: ${instructorId}`);
     }
 
@@ -758,8 +758,8 @@ async function seedCourses() {
         ]
       );
 
-      console.log(`✓ Created: ${result.rows[0].name}`);
-      console.log(`  ID: ${result.rows[0].id}`);
+      console.log(`✓ Created: ${result.rows[0]?.name}`);
+      console.log(`  ID: ${result.rows[0]?.id}`);
       console.log(`  Price: $${(course.priceAmount / 100).toFixed(2)}`);
       console.log(`  Modules: ${course.manifest.modules.length}`);
       console.log(`  Total Assets: ${course.manifest.totalAssets}`);

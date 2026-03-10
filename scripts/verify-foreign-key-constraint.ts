@@ -92,13 +92,13 @@ const verifyForeignKeyConstraint = async (): Promise<void> => {
       );
       console.log("Constraint details:");
       console.log(
-        `  - Constraint name: ${constraintResult.rows[0].constraint_name}`
+        `  - Constraint name: ${constraintResult.rows[0]?.constraint_name}`
       );
       console.log(
-        `  - References: ${constraintResult.rows[0].foreign_table_name}(${constraintResult.rows[0].foreign_column_name})`
+        `  - References: ${constraintResult.rows[0]?.foreign_table_name}(${constraintResult.rows[0]?.foreign_column_name})`
       );
-      console.log(`  - On delete: ${constraintResult.rows[0].delete_rule}`);
-      console.log(`  - On update: ${constraintResult.rows[0].update_rule}\n`);
+      console.log(`  - On delete: ${constraintResult.rows[0]?.delete_rule}`);
+      console.log(`  - On update: ${constraintResult.rows[0]?.update_rule}\n`);
     }
 
     // Step 2: Test the constraint by attempting to insert invalid data
